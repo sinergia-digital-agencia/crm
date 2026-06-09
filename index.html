@@ -393,6 +393,13 @@ async function recargar() {
     const r = await apiGet('getClientes');
     if (r.ok) {
       DB = r.data;
+      // DEBUG: log first client and its ciclos/pagos
+      if (DB.length > 0) {
+        const c = DB[0];
+        console.log('CLIENT ID:', c.id);
+        console.log('CICLOS:', JSON.stringify(c.ciclos));
+        console.log('PAGOS in ciclo 1:', c.ciclos[0]?.pagos);
+      }
       setSyncState('ok');
       renderDashboard();
       renderAlertas();
@@ -580,7 +587,7 @@ function verDetalle(id) {
             <div style="font-weight:700;font-size:14px">${c.moneda} ${parseFloat(p.monto).toLocaleString()}</div>
             <div style="display:flex;gap:6px;align-items:center;justify-content:flex-end;margin-top:5px;flex-wrap:wrap">
               <span class="badge ${p.estado === 'Pagado' ? 'badge-ok' : 'badge-warn'}">${p.estado}</span>
-              ${p.estado === 'Pendiente' ? `<button class="btn btn-sm" style="padding:3px 9px;font-size:11px" onclick="marcarPagado(${id},${ci.num},'${p.id}')">Marcar pagado</button>` : ''}
+              ${p.estado === 'Pendiente' ? `<button class="btn btn-sm" style="padding:3px 9px;font-size:11px" onclick="marcarPagado('${id}',${ci.num},'${p.id}')">Marcar pagado</button>` : ''}
               ${!p.comprobante ? `<button class="btn btn-sm" style="padding:3px 9px;font-size:11px" onclick="abrirComprobante('${id}','${p.id}')"><i class="ti ti-link" style="font-size:11px"></i>Comprobante</button>` : ''}
             </div>
           </div>
@@ -664,9 +671,15 @@ async function marcarPagado(clienteId, cicloNum, pagoId) {
   const p = (ci.pagos || []).find(x => x.id === pagoId); if (!p) return;
   p.estado = 'Pagado';
   setSyncState('syncing');
-  await apiPost('updatePago', { data: { id: p.id, clienteId, ciclo: cicloNum, fecha: p.fecha, concepto: p.concepto, monto: p.monto, estado: 'Pagado', comprobanteNombre: p.comprobante?.nombre || '', comprobanteLink: p.comprobante?.link || '', comprobanteNotas: p.comprobante?.notas || '' } });
+  await apiPost('updatePago', { data: { 
+    id: p.id, clienteId: String(clienteId), ciclo: cicloNum, 
+    fecha: p.fecha, concepto: p.concepto, monto: p.monto, estado: 'Pagado', 
+    comprobanteNombre: p.comprobante?.nombre || '', 
+    comprobanteLink: p.comprobante?.link || '', 
+    comprobanteNotas: p.comprobante?.notas || '' 
+  }});
   setSyncState('ok');
-  verDetalle(clienteId); renderAlertas();
+  verDetalle(String(clienteId)); renderAlertas();
 }
 
 function abrirComprobante(clienteId, pagoId) {
