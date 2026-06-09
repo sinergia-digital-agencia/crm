@@ -465,10 +465,18 @@ function renderDashboard() {
   const venc30 = pendientes.filter(p => { const d = diffDays(p.fecha); return d !== null && d <= 30; });
   const totalDocs = DB.reduce((a, c) => a + (c.docs || []).length, 0);
 
+  // Split cobrado by currency
+  const cobradoSoles = DB.flatMap(c => (c.ciclos||[]).flatMap(ci=>(ci.pagos||[]).filter(p=>p.estado==='Pagado'&&c.moneda==='S/').map(p=>parseFloat(p.monto)||0))).reduce((a,b)=>a+b,0);
+  const cobradoUSD = DB.flatMap(c => (c.ciclos||[]).flatMap(ci=>(ci.pagos||[]).filter(p=>p.estado==='Pagado'&&c.moneda==='USD').map(p=>parseFloat(p.monto)||0))).reduce((a,b)=>a+b,0);
+  const porCobrarSoles = DB.flatMap(c => (c.ciclos||[]).flatMap(ci=>(ci.pagos||[]).filter(p=>p.estado==='Pendiente'&&c.moneda==='S/').map(p=>parseFloat(p.monto)||0))).reduce((a,b)=>a+b,0);
+  const porCobrarUSD = DB.flatMap(c => (c.ciclos||[]).flatMap(ci=>(ci.pagos||[]).filter(p=>p.estado==='Pendiente'&&c.moneda==='USD').map(p=>parseFloat(p.monto)||0))).reduce((a,b)=>a+b,0);
+
   document.getElementById('metrics-row').innerHTML = `
     <div class="metric metric-accent"><div class="metric-label">Clientes activos</div><div class="metric-val">${activos.length}</div><div class="metric-sub">de ${DB.length} en total</div></div>
-    <div class="metric"><div class="metric-label">Cobrado total</div><div class="metric-val" style="font-size:20px">${cobrado.toLocaleString()}</div><div class="metric-sub">todos los ciclos</div></div>
-    <div class="metric"><div class="metric-label">Pagos pendientes</div><div class="metric-val">${pendientes.length}</div><div class="metric-sub">por cobrar</div></div>
+    <div class="metric"><div class="metric-label">Cobrado — Soles</div><div class="metric-val" style="font-size:20px">S/ ${cobradoSoles.toLocaleString()}</div><div class="metric-sub">${cobradoUSD > 0 ? `+ USD ${cobradoUSD.toLocaleString()}` : 'todos los ciclos'}</div></div>
+    <div class="metric"><div class="metric-label">Cobrado — USD</div><div class="metric-val" style="font-size:20px">$ ${cobradoUSD.toLocaleString()}</div><div class="metric-sub">todos los ciclos</div></div>
+    <div class="metric"><div class="metric-label">Por cobrar S/</div><div class="metric-val" style="font-size:20px;color:${porCobrarSoles>0?'#856404':'inherit'}">S/ ${porCobrarSoles.toLocaleString()}</div><div class="metric-sub">${porCobrarUSD > 0 ? `+ USD ${porCobrarUSD.toLocaleString()}` : 'pendiente'}</div></div>
+    <div class="metric"><div class="metric-label">Por cobrar USD</div><div class="metric-val" style="font-size:20px;color:${porCobrarUSD>0?'#856404':'inherit'}">$ ${porCobrarUSD.toLocaleString()}</div><div class="metric-sub">pendiente</div></div>
     <div class="metric"><div class="metric-label">Vencen en 30d</div><div class="metric-val" style="color:${venc30.length > 0 ? '#856404' : 'inherit'}">${venc30.length}</div><div class="metric-sub">requieren atención</div></div>
     <div class="metric"><div class="metric-label">Documentos</div><div class="metric-val">${totalDocs}</div><div class="metric-sub">archivados</div></div>
   `;
