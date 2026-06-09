@@ -410,8 +410,8 @@ async function recargar() {
 // ── UTILS ─────────────────────────────────────────────────────────────────────
 function today() { return new Date().toISOString().split('T')[0]; }
 function parseDate(s) { if (!s) return null; const [y, m, d] = s.split('-'); return new Date(y, m - 1, d); }
-function fmtDate(s) { if (!s) return '—'; return parseDate(s).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' }); }
-function diffDays(s) { if (!s) return null; return Math.round((parseDate(s) - parseDate(today())) / 864e5); }
+function fmtDate(s) { if (!s || s === '0' || s === 'undefined') return '—'; const d = parseDate(s); if (!d || isNaN(d.getTime())) return '—'; return d.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' }); }
+function diffDays(s) { if (!s || s === '0' || s === 'undefined') return null; const d = parseDate(s); if (!d || isNaN(d.getTime())) return null; return Math.round((d - parseDate(today())) / 864e5); }
 function initials(n) { return n.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase(); }
 function uid() { return 'id' + Date.now() + Math.random().toString(36).slice(2, 6); }
 function nextPago(c) { for (const ci of (c.ciclos || [])) for (const p of (ci.pagos || [])) if (p.estado === 'Pendiente') return { ...p, cicloNum: ci.num }; return null; }
@@ -481,7 +481,7 @@ function renderDashboard() {
     ? '<div class="empty-state"><i class="ti ti-user-off"></i><p>Sin clientes activos</p></div>'
     : activos.map(c => {
         const np = nextPago(c); const docs = c.docs || [];
-        return `<div class="client-row" onclick="verDetalle(${c.id})">
+        return `<div class="client-row" onclick="verDetalle('${c.id}')">
           <div style="display:flex;align-items:center;gap:10px">
             <div class="avatar" style="width:34px;height:34px;font-size:12px">${initials(c.nombre)}</div>
             <div><strong style="font-size:13px">${c.nombre}</strong><br><span style="font-size:11px;color:var(--text3)">${c.servicio} — ${c.plan}</span></div>
@@ -511,7 +511,7 @@ function renderClientes() {
           <td>${p ? `<div style="font-size:12px;color:var(--text2)">${fmtDate(p.fecha)}</div>${pagoBadge(d)}` : '—'}</td>
           <td><span class="badge badge-gray"><i class="ti ti-paperclip" style="font-size:10px"></i> ${docs.length}</span></td>
           <td>${estadoBadge(c.estado)}</td>
-          <td><button class="btn btn-sm btn-icon" onclick="verDetalle(${c.id})"><i class="ti ti-eye"></i></button></td>
+          <td><button class="btn btn-sm btn-icon" onclick="verDetalle('${c.id}')"><i class="ti ti-eye"></i></button></td>
         </tr>`;
       }).join('');
 }
@@ -552,7 +552,7 @@ function renderAlertas() {
 
 // ── DETALLE ───────────────────────────────────────────────────────────────────
 function verDetalle(id) {
-  const c = DB.find(x => x.id == id); if (!c) return;
+  const c = DB.find(x => String(x.id) === String(id)); if (!c) return;
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('view-detalle').classList.add('active');
@@ -657,7 +657,7 @@ function verDetalle(id) {
 
 // ── PAGOS / COMPROBANTES ──────────────────────────────────────────────────────
 async function marcarPagado(clienteId, cicloNum, pagoId) {
-  const c = DB.find(x => x.id == clienteId); if (!c) return;
+  const c = DB.find(x => String(x.id) === String(clienteId)); if (!c) return;
   const ci = (c.ciclos || []).find(x => x.num == cicloNum); if (!ci) return;
   const p = (ci.pagos || []).find(x => x.id === pagoId); if (!p) return;
   p.estado = 'Pagado';
@@ -669,7 +669,7 @@ async function marcarPagado(clienteId, cicloNum, pagoId) {
 
 function abrirComprobante(clienteId, pagoId) {
   _compCtx = { clienteId: parseInt(clienteId), pagoId };
-  const c = DB.find(x => x.id == clienteId);
+  const c = DB.find(x => String(x.id) === String(clienteId));
   const p = (c?.ciclos || []).flatMap(ci => ci.pagos || []).find(x => x.id === pagoId);
   document.getElementById('modal-comp-info').innerHTML = `<i class="ti ti-info-circle"></i> <strong>${p?.concepto}</strong> · ${c?.moneda} ${parseFloat(p?.monto).toLocaleString()} · ${fmtDate(p?.fecha)}`;
   ['comp-nombre', 'comp-link', 'comp-notas'].forEach(id => document.getElementById(id).value = '');
@@ -680,7 +680,7 @@ async function guardarComprobante() {
   const nombre = document.getElementById('comp-nombre').value.trim();
   const link = document.getElementById('comp-link').value.trim();
   if (!nombre || !link) { alert('Nombre y link son obligatorios'); return; }
-  const c = DB.find(x => x.id === _compCtx.clienteId); if (!c) return;
+  const c = DB.find(x => String(x.id) === String(_compCtx.clienteId)); if (!c) return;
   let pagoData = null;
   let cicloNum = null;
   for (const ci of (c.ciclos || [])) {
@@ -700,7 +700,7 @@ function abrirModalDoc(clienteId) {
   _docClienteId = clienteId;
   ['doc-nombre', 'doc-link', 'doc-notas'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('doc-tipo').value = 'contrato';
-  const c = DB.find(x => x.id == clienteId);
+  const c = DB.find(x => String(x.id) === String(clienteId));
   document.getElementById('modal-doc-title').textContent = `Agregar doc — ${c?.nombre || ''}`;
   openModal('modal-doc');
 }
@@ -709,7 +709,7 @@ async function guardarDoc() {
   const nombre = document.getElementById('doc-nombre').value.trim();
   const link = document.getElementById('doc-link').value.trim();
   if (!nombre || !link) { alert('Nombre y link son obligatorios'); return; }
-  const c = DB.find(x => x.id == _docClienteId); if (!c) return;
+  const c = DB.find(x => String(x.id) === String(_docClienteId)); if (!c) return;
   const doc = { id: uid(), clienteId: _docClienteId, tipo: document.getElementById('doc-tipo').value, nombre, link, notas: document.getElementById('doc-notas').value, fecha: today() };
   if (!c.docs) c.docs = [];
   c.docs.push(doc);
@@ -722,7 +722,7 @@ async function guardarDoc() {
 
 async function eliminarDoc(clienteId, docId) {
   if (!confirm('¿Eliminar este documento?')) return;
-  const c = DB.find(x => x.id == clienteId); if (!c) return;
+  const c = DB.find(x => String(x.id) === String(clienteId)); if (!c) return;
   c.docs = (c.docs || []).filter(d => d.id !== docId);
   setSyncState('syncing');
   await apiPost('deleteDoc', { id: docId });
@@ -763,7 +763,7 @@ function resetForm() {
 
 function editarCliente() {
   const id = parseInt(document.getElementById('btn-editar').getAttribute('data-id'));
-  const c = DB.find(x => x.id == id); if (!c) return;
+  const c = DB.find(x => String(x.id) === String(id)); if (!c) return;
   editingId = id;
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -790,7 +790,7 @@ function editarCliente() {
 
 async function renovarCliente() {
   const id = parseInt(document.getElementById('btn-renovar').getAttribute('data-id'));
-  const c = DB.find(x => x.id == id); if (!c) return;
+  const c = DB.find(x => String(x.id) === String(id)); if (!c) return;
   const last = (c.ciclos || [])[c.ciclos.length - 1];
   if (!last) { alert('No hay ciclos previos'); return; }
   const newStart = new Date(parseDate(last.fin || last.inicio)); newStart.setDate(newStart.getDate() + 1);
@@ -846,7 +846,7 @@ async function guardarCliente() {
 
   setSyncState('syncing');
   if (editingId) {
-    const c = DB.find(x => x.id == editingId);
+    const c = DB.find(x => String(x.id) === String(editingId));
     Object.assign(c, data);
     data.id = editingId; data.ciclos = c.ciclos; data.docs = c.docs;
     await apiPost('saveCliente', { data });
