@@ -1,0 +1,14 @@
+{
+  "name": "CRM Sinergia Digital",
+  "short_name": "SD CRM",
+  "description": "Control de clientes y pagos — Sinergia Digital",
+  "start_url": "/crm/",
+  "display": "standalone",
+  "background_color": "#f4f1f2",
+  "theme_color": "#591D33",
+  "orientation": "any",
+  "icons": [
+    { "src": "https://via.placeholder.com/192/591D33/ffffff?text=SD", "sizes": "192x192", "type": "image/png" },
+    { "src": "https://via.placeholder.com/512/591D33/ffffff?text=SD", "sizes": "512x512", "type": "image/png" }
+  ]
+}
