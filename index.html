@@ -422,7 +422,8 @@ function estadoBadge(e) {
 }
 function pagoBadge(dias) {
   if (dias === null) return '<span class="badge badge-gray">Sin fecha</span>';
-  if (dias < 0) return '<span class="badge badge-danger">Vencido</span>';
+  if (dias < 0) return `<span class="badge badge-danger">Vencido ${Math.abs(dias)}d</span>`;
+  if (dias === 0) return '<span class="badge badge-danger">Hoy</span>';
   if (dias <= 5) return `<span class="badge badge-danger">En ${dias}d</span>`;
   if (dias <= 15) return `<span class="badge badge-warn">En ${dias}d</span>`;
   return `<span class="badge badge-ok">En ${dias}d</span>`;
@@ -481,7 +482,7 @@ function renderDashboard() {
     ? '<div class="empty-state"><i class="ti ti-user-off"></i><p>Sin clientes activos</p></div>'
     : activos.map(c => {
         const np = nextPago(c); const docs = c.docs || [];
-        return `<div class="client-row" onclick="verDetalle('${c.id}')">
+        return `<div class="client-row" onclick="verDetalle(this.dataset.id)" data-id="${c.id}">
           <div style="display:flex;align-items:center;gap:10px">
             <div class="avatar" style="width:34px;height:34px;font-size:12px">${initials(c.nombre)}</div>
             <div><strong style="font-size:13px">${c.nombre}</strong><br><span style="font-size:11px;color:var(--text3)">${c.servicio} — ${c.plan}</span></div>
@@ -511,7 +512,7 @@ function renderClientes() {
           <td>${p ? `<div style="font-size:12px;color:var(--text2)">${fmtDate(p.fecha)}</div>${pagoBadge(d)}` : '—'}</td>
           <td><span class="badge badge-gray"><i class="ti ti-paperclip" style="font-size:10px"></i> ${docs.length}</span></td>
           <td>${estadoBadge(c.estado)}</td>
-          <td><button class="btn btn-sm btn-icon" onclick="verDetalle('${c.id}')"><i class="ti ti-eye"></i></button></td>
+          <td><button class="btn btn-sm btn-icon" onclick="verDetalle(this.dataset.id)" data-id="${c.id}"><i class="ti ti-eye"></i></button></td>
         </tr>`;
       }).join('');
 }
@@ -552,7 +553,8 @@ function renderAlertas() {
 
 // ── DETALLE ───────────────────────────────────────────────────────────────────
 function verDetalle(id) {
-  const c = DB.find(x => String(x.id) === String(id)); if (!c) return;
+  id = String(id);
+  const c = DB.find(x => String(x.id) === id); if (!c) return;
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('view-detalle').classList.add('active');
@@ -762,7 +764,7 @@ function resetForm() {
 }
 
 function editarCliente() {
-  const id = parseInt(document.getElementById('btn-editar').getAttribute('data-id'));
+  const id = document.getElementById('btn-editar').getAttribute('data-id');
   const c = DB.find(x => String(x.id) === String(id)); if (!c) return;
   editingId = id;
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -789,7 +791,7 @@ function editarCliente() {
 }
 
 async function renovarCliente() {
-  const id = parseInt(document.getElementById('btn-renovar').getAttribute('data-id'));
+  const id = document.getElementById('btn-renovar').getAttribute('data-id');
   const c = DB.find(x => String(x.id) === String(id)); if (!c) return;
   const last = (c.ciclos || [])[c.ciclos.length - 1];
   if (!last) { alert('No hay ciclos previos'); return; }
@@ -814,7 +816,14 @@ async function renovarCliente() {
   setSyncState('syncing');
   // Save ciclo metadata and new pagos
   await apiPost('saveCliente', { data: { ...c } });
-  for (const p of pagos) await apiPost('savePago', { data: { ...p, clienteId: id, ciclo: newCiclo.num } });
+  for (const p of pagos) {
+    await apiPost('savePago', { data: {
+      id: p.id, clienteId: id, ciclo: newCiclo.num,
+      fecha: p.fecha || today(), concepto: p.concepto,
+      monto: p.monto, estado: p.estado,
+      comprobanteNombre: '', comprobanteLink: '', comprobanteNotas: ''
+    }});
+  }
   setSyncState('ok');
   verDetalle(id); renderAlertas();
   alert(`Ciclo ${newCiclo.num} creado exitosamente.`);
@@ -826,14 +835,15 @@ async function guardarCliente() {
   const monto = parseFloat(document.getElementById('f-monto').value) || 0;
   const modalidad = document.getElementById('f-modalidad').value;
   const inicio = document.getElementById('f-inicio').value || today();
-  const fp1 = document.getElementById('f-fp1').value || inicio;
+  const fp1 = document.getElementById('f-fp1').value || inicio || today();
   const mp1 = parseFloat(document.getElementById('f-mp1').value) || monto;
   const fp2 = document.getElementById('f-fp2').value || '';
   const mp2 = parseFloat(document.getElementById('f-mp2').value) || 0;
   let fin = '';
   if (modalidad === '3meses') { const d = parseDate(inicio); d.setMonth(d.getMonth() + 3); d.setDate(d.getDate() - 1); fin = d.toISOString().split('T')[0]; }
   else { const d = parseDate(inicio); d.setMonth(d.getMonth() + 1); d.setDate(d.getDate() - 1); fin = d.toISOString().split('T')[0]; }
-  let ciclosPagos = [{ id: uid(), fecha: fp1, concepto: 'Pago 1 — Ciclo 1', monto: mp1, estado: 'Pendiente', comprobante: null }];
+  const p1id = uid();
+  let ciclosPagos = [{ id: p1id, fecha: fp1 || today(), concepto: 'Pago 1 — Ciclo 1', monto: mp1, estado: 'Pendiente', comprobante: null }];
   if (modalidad === '3meses' && fp2) ciclosPagos.push({ id: uid(), fecha: fp2, concepto: 'Pago 2 — Ciclo 1', monto: mp2, estado: 'Pendiente', comprobante: null });
 
   const data = {
@@ -847,8 +857,10 @@ async function guardarCliente() {
   setSyncState('syncing');
   if (editingId) {
     const c = DB.find(x => String(x.id) === String(editingId));
+    const ciclosOrig = c.ciclos; const docsOrig = c.docs;
     Object.assign(c, data);
-    data.id = editingId; data.ciclos = c.ciclos; data.docs = c.docs;
+    c.ciclos = ciclosOrig; c.docs = docsOrig;
+    data.id = editingId; data.ciclos = ciclosOrig; data.docs = docsOrig;
     await apiPost('saveCliente', { data });
     setSyncState('ok');
     verDetalle(editingId);
@@ -857,7 +869,14 @@ async function guardarCliente() {
     DB.push(data);
     const r = await apiPost('saveCliente', { data });
     if (r.id) data.id = r.id;
-    for (const p of ciclosPagos) await apiPost('savePago', { data: { ...p, clienteId: data.id, ciclo: 1 } });
+    for (const p of ciclosPagos) {
+      await apiPost('savePago', { data: { 
+        id: p.id, clienteId: data.id, ciclo: 1,
+        fecha: p.fecha || today(), concepto: p.concepto,
+        monto: p.monto, estado: p.estado,
+        comprobanteNombre: '', comprobanteLink: '', comprobanteNotas: ''
+      }});
+    }
     setSyncState('ok');
     goTo('clientes', document.querySelector('[onclick*=clientes]'));
   }
