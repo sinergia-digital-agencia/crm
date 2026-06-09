@@ -867,8 +867,7 @@ async function guardarCliente() {
   } else {
     data.id = uid(); data.ciclos = [{ num: 1, inicio, fin, pagos: ciclosPagos }]; data.docs = [];
     DB.push(data);
-    const r = await apiPost('saveCliente', { data });
-    if (r.id) data.id = r.id;
+    await apiPost('saveCliente', { data });
     for (const p of ciclosPagos) {
       await apiPost('savePago', { data: { 
         id: p.id, clienteId: data.id, ciclo: 1,
