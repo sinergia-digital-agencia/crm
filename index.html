@@ -272,6 +272,7 @@ button{cursor:pointer;font-family:var(--font)}
     <div class="page-header">
       <h2>Finanzas — Caja Sinergia Digital</h2>
       <div class="btn-group">
+        <button class="btn btn-sm" style="color:#155724;border-color:#28a745" onclick="abrirNuevoIngreso()"><i class="ti ti-plus"></i>Registrar ingreso</button>
         <button class="btn btn-sm" onclick="abrirNuevoEgreso()"><i class="ti ti-minus"></i>Registrar egreso</button>
         <button class="btn btn-sm" onclick="abrirNuevoMiembro()"><i class="ti ti-user-plus"></i>Agregar al equipo</button>
       </div>
@@ -289,6 +290,15 @@ button{cursor:pointer;font-family:var(--font)}
     <div class="metrics" id="balance-metrics" style="margin-bottom:20px"></div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+
+      <!-- INGRESOS MANUALES -->
+      <div class="card" style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div class="section-title" style="margin:0;border:none;padding:0">Ingresos adicionales</div>
+          <span style="font-size:11px;color:var(--text3)">Pagos fuera del CRM</span>
+        </div>
+        <div id="ingresos-manuales-list"></div>
+      </div>
 
       <!-- EGRESOS -->
       <div class="card">
@@ -410,6 +420,46 @@ button{cursor:pointer;font-family:var(--font)}
   </div>
 
 </div><!-- /content -->
+
+<!-- MODAL: ingreso manual -->
+<div class="overlay" id="modal-ingreso">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Registrar ingreso adicional</span>
+      <button class="btn btn-icon btn-sm" onclick="closeModal('modal-ingreso')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Fecha</label><input id="ing-fecha" type="date"></div>
+      <div class="form-group"><label>Tipo</label>
+        <select id="ing-tipo">
+          <option>Pago de cliente externo</option>
+          <option>Bono</option>
+          <option>Comisión</option>
+          <option>Reembolso</option>
+          <option>Otro</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:10px">
+      <label>Concepto / Descripción</label>
+      <input id="ing-concepto" placeholder="Ej: Pago diseño web cliente externo">
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Monto</label><input id="ing-monto" type="number" placeholder="0"></div>
+      <div class="form-group"><label>Moneda</label>
+        <select id="ing-moneda"><option>S/</option><option>USD</option><option>COP</option></select>
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:18px">
+      <label>Notas (opcional)</label>
+      <textarea id="ing-notas" rows="2" placeholder="Detalles adicionales..."></textarea>
+    </div>
+    <div class="btn-group" style="justify-content:flex-end">
+      <button class="btn btn-sm" onclick="closeModal('modal-ingreso')">Cancelar</button>
+      <button class="btn btn-primary btn-sm" onclick="guardarIngreso()"><i class="ti ti-device-floppy"></i>Guardar</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL: egreso -->
 <div class="overlay" id="modal-egreso">
@@ -724,6 +774,13 @@ function renderDashboard() {
       : mesesOrdenados.map(k => {
           const [y, m] = k.split('-');
           const d = ingresosPorMes[k];
+          // Sumar ingresos manuales del mismo mes
+          const ingExtra = INGRESOS_MANUAL.filter(i => i.fecha && i.fecha.substring(0,7) === k);
+          ingExtra.forEach(i => {
+            const mk = i.moneda === 'S/' ? 'S' : i.moneda;
+            if (!d[mk]) d[mk] = 0;
+            d[mk] += parseFloat(i.monto)||0;
+          });
           const partes = [];
           if (d.S > 0) partes.push('S/ ' + d.S.toLocaleString());
           if (d.USD > 0) partes.push('USD ' + d.USD.toLocaleString());
@@ -1183,6 +1240,45 @@ function setMonedaBalance(mon) {
   renderFinanzas();
 }
 
+function abrirNuevoIngreso() {
+  document.getElementById('ing-fecha').value = today();
+  document.getElementById('ing-tipo').value = 'Pago de cliente externo';
+  document.getElementById('ing-concepto').value = '';
+  document.getElementById('ing-monto').value = '';
+  document.getElementById('ing-moneda').value = 'S/';
+  document.getElementById('ing-notas').value = '';
+  openModal('modal-ingreso');
+}
+
+async function guardarIngreso() {
+  const monto = parseFloat(document.getElementById('ing-monto').value) || 0;
+  if (!monto) { alert('El monto es obligatorio'); return; }
+  const data = {
+    id: uid(),
+    fecha: document.getElementById('ing-fecha').value || today(),
+    tipo: document.getElementById('ing-tipo').value,
+    concepto: document.getElementById('ing-concepto').value,
+    monto,
+    moneda: document.getElementById('ing-moneda').value,
+    notas: document.getElementById('ing-notas').value
+  };
+  INGRESOS_MANUAL.push(data);
+  setSyncState('syncing');
+  await apiPost('saveIngresoManual', { data });
+  setSyncState('ok');
+  closeModal('modal-ingreso');
+  renderFinanzas();
+}
+
+async function eliminarIngresoManual(id) {
+  if (!confirm('¿Eliminar este ingreso?')) return;
+  INGRESOS_MANUAL = INGRESOS_MANUAL.filter(x => x.id !== id);
+  setSyncState('syncing');
+  await apiPost('deleteIngresoManual', { id });
+  setSyncState('ok');
+  renderFinanzas();
+}
+
 function abrirNuevoEgreso() {
   document.getElementById('eg-fecha').value = today();
   document.getElementById('eg-tipo').value = 'Sueldo';
@@ -1277,10 +1373,13 @@ function renderFinanzas() {
   };
 
   // ── BALANCE ────────────────────────────────────────────────────────────────
-  const ingresos = DB.flatMap(c => (c.ciclos||[]).flatMap(ci =>
+  const ingresosClientes = DB.flatMap(c => (c.ciclos||[]).flatMap(ci =>
     (ci.pagos||[]).filter(p => p.estado==='Pagado' && c.moneda===mon && esMesFiltrado(p.fecha))
     .map(p => parseFloat(p.monto)||0)
   )).reduce((a,b)=>a+b,0);
+  const ingresosExtra = INGRESOS_MANUAL.filter(i => i.moneda===mon && esMesFiltrado(i.fecha))
+    .reduce((a,i) => a + (parseFloat(i.monto)||0), 0);
+  const ingresos = ingresosClientes + ingresosExtra;
 
   const egresos_mon = EGRESOS.filter(e => e.moneda===mon && esMesFiltrado(e.fecha))
     .reduce((a,e) => a + (parseFloat(e.monto)||0), 0);
@@ -1324,6 +1423,27 @@ function renderFinanzas() {
   `;
 
   // ── LISTA EGRESOS ─────────────────────────────────────────────────────────
+  // ── RENDER INGRESOS MANUALES ─────────────────────────────────────────────
+  const ingManualEl = document.getElementById('ingresos-manuales-list');
+  const ingFiltered = INGRESOS_MANUAL.filter(i => (!filterMon||i.moneda===filterMon) && esMesFiltrado(i.fecha))
+    .sort((a,b) => b.fecha.localeCompare(a.fecha));
+  if (ingManualEl) ingManualEl.innerHTML = ingFiltered.length === 0
+    ? '<div class="empty-state"><i class="ti ti-coin"></i><p>Sin ingresos adicionales registrados</p></div>'
+    : ingFiltered.map(i => `
+      <div class="pago-row">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+            <span class="badge badge-ok" style="font-size:10px">${i.tipo}</span>
+            <strong style="font-size:13px">${i.concepto||'—'}</strong>
+          </div>
+          <div style="font-size:11px;color:var(--text3)">${fmtDate(i.fecha)}${i.notas?' · '+i.notas:''}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-weight:700;font-size:14px;color:#155724">+ ${i.moneda} ${parseFloat(i.monto).toLocaleString()}</div>
+          <button class="btn btn-sm btn-icon btn-danger" style="margin-top:4px" onclick="eliminarIngresoManual('${i.id}')"><i class="ti ti-trash"></i></button>
+        </div>
+      </div>`).join('');
+
   const tipoColors = {'Sueldo':'badge-blue','Gasto operativo':'badge-lilac','Retiro personal':'badge-vino','Otro':'badge-gray'};
   const egresosEl = document.getElementById('egresos-list');
   const egFiltered = EGRESOS
