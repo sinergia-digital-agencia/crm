@@ -1473,7 +1473,7 @@ function renderFinanzas() {
             ${miembro ? `<span class="badge badge-lilac" style="font-size:10px">${miembro.nombre}</span>` : ''}
           </div>
           <div style="font-size:11px;color:var(--text3)">${fmtDate(e.fecha)}${e.motivo?' · '+e.motivo:''}</div>
-        </div>`
+        </div>
         <div style="text-align:right;flex-shrink:0">
           <div style="font-weight:700;font-size:14px;color:#721c24">− ${e.moneda} ${parseFloat(e.monto).toLocaleString()}</div>
           <button class="btn btn-sm btn-icon btn-danger" style="margin-top:4px" onclick="eliminarEgreso('${e.id}')"><i class="ti ti-trash"></i></button>
