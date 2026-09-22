@@ -220,9 +220,10 @@ button{cursor:pointer;font-family:var(--font)}
   <div class="view active" id="view-dashboard">
     <div class="page-header"><h2>Dashboard</h2><button class="btn btn-sm" onclick="recargar()"><i class="ti ti-refresh"></i>Actualizar</button></div>
     <div class="metrics" id="metrics-row"><div class="loading"><div class="spinner"></div></div></div>
-    <div class="card-grid">
+    <div class="card-grid" style="grid-template-columns:1fr 1fr;">
       <div class="card"><div class="section-title">Vencimientos próximos — 30 días</div><div id="upcoming-list"><div class="loading"><div class="spinner"></div></div></div></div>
       <div class="card"><div class="section-title">Clientes activos</div><div id="active-clients-list"><div class="loading"><div class="spinner"></div></div></div></div>
+      <div class="card" style="grid-column:1/-1"><div class="section-title">Ingresos por mes (últimos 6 meses)</div><div id="mes-resumen"><div class="loading"><div class="spinner"></div></div></div></div>
     </div>
   </div>
 
@@ -293,9 +294,18 @@ button{cursor:pointer;font-family:var(--font)}
       <div class="card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
           <div class="section-title" style="margin:0;border:none;padding:0">Egresos registrados</div>
-          <div style="display:flex;gap:6px">
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <select class="search-bar" id="filter-egreso-mes" onchange="renderFinanzas()" style="width:auto;font-size:12px">
+              <option value="">Todos los meses</option>
+              <option value="01">Enero</option><option value="02">Febrero</option>
+              <option value="03">Marzo</option><option value="04">Abril</option>
+              <option value="05">Mayo</option><option value="06">Junio</option>
+              <option value="07">Julio</option><option value="08">Agosto</option>
+              <option value="09">Septiembre</option><option value="10">Octubre</option>
+              <option value="11">Noviembre</option><option value="12">Diciembre</option>
+            </select>
             <select class="search-bar" id="filter-egreso-tipo" onchange="renderFinanzas()" style="width:auto;font-size:12px">
-              <option value="">Todos</option>
+              <option value="">Todos los tipos</option>
               <option>Sueldo</option>
               <option>Gasto operativo</option>
               <option>Retiro personal</option>
@@ -693,6 +703,37 @@ function renderDashboard() {
           <div style="text-align:right"><div style="font-weight:600;font-size:13px">${p.moneda} ${parseFloat(p.monto).toLocaleString()}</div><div style="font-size:11px;color:var(--text3)">${fmtDate(p.fecha)}</div>${pagoBadge(d)}</div>
         </div>`;
       }).join('');
+
+  // ── INGRESOS POR MES ──────────────────────────────────────────────────────
+  const mesesNombres = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const ingresosPorMes = {};
+  DB.forEach(c => {
+    (c.ciclos||[]).forEach(ci => {
+      (ci.pagos||[]).filter(p => p.estado==='Pagado' && p.fecha).forEach(p => {
+        const key = p.fecha.substring(0,7); // YYYY-MM
+        if (!ingresosPorMes[key]) ingresosPorMes[key] = {S:0, USD:0, COP:0};
+        ingresosPorMes[key][c.moneda === 'S/' ? 'S' : c.moneda === 'USD' ? 'USD' : 'COP'] += parseFloat(p.monto)||0;
+      });
+    });
+  });
+  const mesesOrdenados = Object.keys(ingresosPorMes).sort().reverse().slice(0,6);
+  const mesResumenEl = document.getElementById('mes-resumen');
+  if (mesResumenEl) {
+    mesResumenEl.innerHTML = mesesOrdenados.length === 0
+      ? '<div style="color:var(--text3);font-size:13px;padding:8px 0">Sin ingresos registrados</div>'
+      : mesesOrdenados.map(k => {
+          const [y, m] = k.split('-');
+          const d = ingresosPorMes[k];
+          const partes = [];
+          if (d.S > 0) partes.push('S/ ' + d.S.toLocaleString());
+          if (d.USD > 0) partes.push('USD ' + d.USD.toLocaleString());
+          if (d.COP > 0) partes.push('COP ' + d.COP.toLocaleString());
+          return `<div class="pago-ciclo">
+            <div><strong>${mesesNombres[parseInt(m)-1]} ${y}</strong></div>
+            <div style="text-align:right;font-size:13px;font-weight:600;color:var(--vino)">${partes.join(' + ') || '—'}</div>
+          </div>`;
+        }).join('');
+  }
 
   document.getElementById('active-clients-list').innerHTML = activos.length === 0
     ? '<div class="empty-state"><i class="ti ti-user-off"></i><p>Sin clientes activos</p></div>'
@@ -1227,14 +1268,21 @@ function renderFinanzas() {
   const mon = monedaBalance;
   const filterTipo = document.getElementById('filter-egreso-tipo')?.value || '';
   const filterMon = document.getElementById('filter-egreso-moneda')?.value || '';
+  const filterMes = document.getElementById('filter-egreso-mes')?.value || '';
+
+  // Función para verificar si una fecha corresponde al mes filtrado
+  const esMesFiltrado = (fecha) => {
+    if (!filterMes || !fecha) return true;
+    return fecha.substring(5, 7) === filterMes;
+  };
 
   // ── BALANCE ────────────────────────────────────────────────────────────────
   const ingresos = DB.flatMap(c => (c.ciclos||[]).flatMap(ci =>
-    (ci.pagos||[]).filter(p => p.estado==='Pagado' && c.moneda===mon)
+    (ci.pagos||[]).filter(p => p.estado==='Pagado' && c.moneda===mon && esMesFiltrado(p.fecha))
     .map(p => parseFloat(p.monto)||0)
   )).reduce((a,b)=>a+b,0);
 
-  const egresos_mon = EGRESOS.filter(e => e.moneda===mon)
+  const egresos_mon = EGRESOS.filter(e => e.moneda===mon && esMesFiltrado(e.fecha))
     .reduce((a,e) => a + (parseFloat(e.monto)||0), 0);
 
   const caja = ingresos - egresos_mon;
@@ -1246,9 +1294,10 @@ function renderFinanzas() {
   const sym = mon === 'S/' ? 'S/' : mon === 'USD' ? 'USD' : 'COP';
 
   const metricsEl = document.getElementById('balance-metrics');
+  const mesLabel = filterMes ? ' — ' + ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][parseInt(filterMes)] : '';
   if (metricsEl) metricsEl.innerHTML = `
     <div class="metric metric-accent" style="border-top-color:#28a745">
-      <div class="metric-label">Total ingresos ${sym}</div>
+      <div class="metric-label">Ingresos ${sym}${mesLabel}</div>
       <div class="metric-val" style="color:#155724;font-size:20px">${sym} ${ingresos.toLocaleString()}</div>
       <div class="metric-sub">pagos cobrados</div>
     </div>
@@ -1278,7 +1327,7 @@ function renderFinanzas() {
   const tipoColors = {'Sueldo':'badge-blue','Gasto operativo':'badge-lilac','Retiro personal':'badge-vino','Otro':'badge-gray'};
   const egresosEl = document.getElementById('egresos-list');
   const egFiltered = EGRESOS
-    .filter(e => (!filterTipo||e.tipo===filterTipo) && (!filterMon||e.moneda===filterMon))
+    .filter(e => (!filterTipo||e.tipo===filterTipo) && (!filterMon||e.moneda===filterMon) && esMesFiltrado(e.fecha))
     .sort((a,b) => b.fecha.localeCompare(a.fecha));
 
   if (egresosEl) egresosEl.innerHTML = egFiltered.length === 0
