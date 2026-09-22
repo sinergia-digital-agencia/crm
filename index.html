@@ -582,14 +582,13 @@ async function apiPost(action, data = {}) {
 async function recargar() {
   setSyncState('syncing');
   try {
-    const rC = await apiGet('getClientes');
-    if (rC.ok) DB = rC.data;
-    const rP = await apiGet('getProspectos');
-    if (rP.ok) PROSPECTOS = rP.data;
-    const rE = await apiGet('getEgresos');
-    if (rE.ok) EGRESOS = rE.data;
-    const rEq = await apiGet('getEquipo');
-    if (rEq.ok) EQUIPO = rEq.data;
+    const r = await apiGet('getAll');
+    if (r.ok) {
+      DB = r.clientes || [];
+      PROSPECTOS = r.prospectos || [];
+      EGRESOS = r.egresos || [];
+      EQUIPO = r.equipo || [];
+    }
     setSyncState('ok');
     renderDashboard();
     renderAlertas();
