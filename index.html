@@ -329,7 +329,7 @@ button{cursor:pointer;font-family:var(--font)}
       <input class="search-bar" placeholder="Buscar..." id="search-prospectos" oninput="renderProspectos()" style="width:180px">
       <select class="search-bar" id="filter-estado-prospecto" onchange="renderProspectos()" style="width:auto">
         <option value="">Todos los estados</option>
-        <option>Nos reunimos</option>
+        <option>Agendado</option>
         <option>Se mostró propuesta</option>
         <option>Se cerró</option>
         <option>No se cerró</option>
@@ -495,7 +495,7 @@ button{cursor:pointer;font-family:var(--font)}
     </div>
     <div class="form-group" style="margin-bottom:10px"><label>Estado</label>
       <select id="pr-estado">
-        <option>Nos reunimos</option>
+        <option>Agendado</option>
         <option>Se mostró propuesta</option>
         <option>Se cerró</option>
         <option>No se cerró</option>
@@ -1322,7 +1322,7 @@ let editingProspectoId = null;
 function abrirNuevoProspecto() {
   editingProspectoId = null;
   ['pr-nombre','pr-nicho','pr-telefono','pr-pais','pr-ig','pr-enlace','pr-comentario'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
-  document.getElementById('pr-estado').value = 'Nos reunimos';
+  document.getElementById('pr-estado').value = 'Agendado';
   document.getElementById('modal-prospecto-title').textContent = 'Nuevo prospecto';
   openModal('modal-prospecto');
 }
@@ -1365,7 +1365,7 @@ function editarProspecto(id) {
   document.getElementById('pr-pais').value = p.pais||'';
   document.getElementById('pr-ig').value = p.ig||'';
   document.getElementById('pr-enlace').value = p.enlace||'';
-  document.getElementById('pr-estado').value = p.estado||'Nos reunimos';
+  document.getElementById('pr-estado').value = p.estado||'Agendado';
   document.getElementById('pr-comentario').value = p.comentario||'';
   document.getElementById('modal-prospecto-title').textContent = 'Editar prospecto';
   openModal('modal-prospecto');
@@ -1382,7 +1382,7 @@ async function eliminarProspecto(id) {
 }
 
 function estadoProspectoBadge(e) {
-  const m = {'Nos reunimos':'badge-blue','Se mostró propuesta':'badge-lilac','Se cerró':'badge-ok','No se cerró':'badge-danger','Seguimiento':'badge-warn'};
+  const m = {'Agendado':'badge-blue','Se mostró propuesta':'badge-lilac','Se cerró':'badge-ok','No se cerró':'badge-danger','Seguimiento':'badge-warn'};
   return '<span class="badge ' + (m[e]||'badge-gray') + '">' + e + '</span>';
 }
 
