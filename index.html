@@ -1,345 +1,1463 @@
-// ── SINERGIA DIGITAL CRM — Apps Script Final ─────────────────────────────────
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRM — Sinergia Digital</title>
+<meta name="description" content="CRM interno de Sinergia Digital">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#591D33">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SD CRM">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --vino:#591D33;--vino-mid:#7a2845;--vino-light:#f9f0f3;--vino-border:#e8d0d8;
+  --lilac:#D6BBF2;--lilac-bg:#ede5fb;--lilac-text:#3d2070;
+  --lemon:#F6FFA1;--bluepurp:#93A2FD;--terra:#BF4F26;
+  --bg:#f4f1f2;--surface:#ffffff;--surface2:#f8f5f6;
+  --text:#1a1010;--text2:#6b5057;--text3:#9e8089;
+  --border:#ede0e3;--border2:#d9c8cc;
+  --ok-bg:#d4edda;--ok-text:#155724;
+  --warn-bg:#fff3cd;--warn-text:#856404;
+  --danger-bg:#f8d7da;--danger-text:#721c24;
+  --info-bg:#e3f0ff;--info-text:#1a4a8a;
+  --radius:10px;--radius-sm:7px;--radius-lg:14px;
+  --shadow:0 1px 3px rgba(89,29,51,.07);
+  --font:'Inter',system-ui,-apple-system,sans-serif;
+}
+body{font-family:var(--font);font-size:14px;color:var(--text);background:var(--bg);min-height:100vh}
+a{color:var(--vino);text-decoration:none}
+button{cursor:pointer;font-family:var(--font)}
 
-const SS = SpreadsheetApp.getActiveSpreadsheet();
+/* TOPBAR */
+.topbar{background:var(--vino);color:#fff;padding:0 20px;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:0 2px 8px rgba(89,29,51,.3)}
+.topbar-brand{display:flex;align-items:center;gap:10px}
+.topbar-logo{width:32px;height:32px;background:rgba(255,255,255,.15);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.topbar-name{font-size:15px;font-weight:600;letter-spacing:-.01em}
+.topbar-sub{font-size:11px;opacity:.65;margin-top:1px}
+.topbar-date{font-size:11px;opacity:.6}
+.sync-indicator{display:flex;align-items:center;gap:5px;font-size:11px;opacity:.8}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:#4ade80}
+.sync-dot.syncing{background:#fbbf24;animation:pulse 1s infinite}
+.sync-dot.error{background:#f87171}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 
-function doGet(e) {
-  const p = e.parameter;
-  let result;
+/* NAV */
+.nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+.nav::-webkit-scrollbar{display:none}
+.nav-btn{padding:12px 14px;border:none;background:transparent;border-bottom:2px solid transparent;font-size:13px;color:var(--text2);display:flex;align-items:center;gap:6px;white-space:nowrap;transition:all .15s;font-weight:500}
+.nav-btn:hover{color:var(--vino);background:var(--vino-light)}
+.nav-btn.active{color:var(--vino);border-bottom-color:var(--vino);background:var(--vino-light)}
+.nav-btn .ti{font-size:16px}
+.alert-chip{background:#dc3545;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;line-height:1.4}
+
+/* LAYOUT */
+.content{padding:20px;max-width:1100px;margin:0 auto}
+.view{display:none}.view.active{display:block}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px}
+.page-header h2{font-size:18px;font-weight:600;color:var(--text);letter-spacing:-.02em}
+
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin-bottom:14px;box-shadow:var(--shadow)}
+.card-sm{padding:14px 16px}
+.card-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:640px){.card-grid{grid-template-columns:1fr}}
+
+/* METRICS */
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px}
+.metric{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow)}
+.metric-label{font-size:11px;color:var(--text3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em;font-weight:500}
+.metric-val{font-size:24px;font-weight:700;color:var(--text);letter-spacing:-.02em;line-height:1}
+.metric-sub{font-size:11px;color:var(--text3);margin-top:4px}
+.metric-accent{border-top:3px solid var(--vino)}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.01em}
+.badge-ok{background:var(--ok-bg);color:var(--ok-text)}
+.badge-warn{background:var(--warn-bg);color:var(--warn-text)}
+.badge-danger{background:var(--danger-bg);color:var(--danger-text)}
+.badge-gray{background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
+.badge-vino{background:var(--vino-light);color:var(--vino)}
+.badge-lilac{background:var(--lilac-bg);color:var(--lilac-text)}
+.badge-blue{background:var(--info-bg);color:var(--info-text)}
+
+/* BOTONES */
+.btn{padding:8px 16px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:13px;display:inline-flex;align-items:center;gap:6px;transition:all .15s;font-weight:500}
+.btn:hover{background:var(--surface2);border-color:var(--border2)}
+.btn-primary{background:var(--vino);color:#fff;border-color:var(--vino)}
+.btn-primary:hover{background:var(--vino-mid)}
+.btn-sm{padding:5px 11px;font-size:12px}
+.btn-icon{width:32px;height:32px;padding:0;justify-content:center}
+.btn-danger{background:var(--danger-bg);color:var(--danger-text);border-color:#f5c6cb}
+.btn-danger:hover{background:#f5c6cb}
+.btn-group{display:flex;gap:8px;flex-wrap:wrap}
+
+/* TABLA */
+.table-wrap{overflow-x:auto;border-radius:var(--radius-lg);border:1px solid var(--border);box-shadow:var(--shadow)}
+.tbl{width:100%;border-collapse:collapse;font-size:13px;background:var(--surface)}
+.tbl th{text-align:left;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;background:var(--surface2);border-bottom:1px solid var(--border)}
+.tbl td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tbody tr:hover td{background:#fdf8f9}
+
+/* FORM */
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:13px}
+.form-row-3{grid-template-columns:1fr 1fr 1fr}
+.form-row-1{grid-template-columns:1fr}
+@media(max-width:600px){.form-row,.form-row-3{grid-template-columns:1fr}}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group label{font-size:12px;font-weight:600;color:var(--text2)}
+.form-group input,.form-group select,.form-group textarea{padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:13px;font-family:var(--font);transition:border .15s}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:var(--vino);box-shadow:0 0 0 3px rgba(89,29,51,.1)}
+.section-title{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;padding-bottom:7px;border-bottom:1px solid var(--border)}
+.hint-box{background:var(--vino-light);border:1px solid var(--vino-border);border-radius:var(--radius-sm);padding:11px 14px;font-size:13px;color:var(--text2);margin-bottom:13px;line-height:1.5}
+
+/* ALERTAS */
+.alert{padding:11px 14px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:8px;display:flex;align-items:flex-start;gap:9px;line-height:1.5}
+.alert .ti{font-size:16px;flex-shrink:0;margin-top:1px}
+.alert-danger{background:var(--danger-bg);color:var(--danger-text);border-left:3px solid #dc3545}
+.alert-warn{background:var(--warn-bg);color:var(--warn-text);border-left:3px solid #ffc107}
+.alert-ok{background:var(--ok-bg);color:var(--ok-text);border-left:3px solid #28a745}
+.alert-info{background:var(--info-bg);color:var(--info-text);border-left:3px solid #4a90e2}
+.alert-section-label{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px}
+
+/* TIMELINE */
+.timeline{position:relative;padding-left:22px}
+.timeline::before{content:'';position:absolute;left:7px;top:4px;bottom:4px;width:1px;background:var(--border)}
+.tl-item{position:relative;margin-bottom:10px;padding:10px 13px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border)}
+.tl-item::before{content:'';position:absolute;left:-18px;top:13px;width:9px;height:9px;border-radius:50%;background:var(--vino);border:2px solid var(--surface)}
+.tl-label{font-size:11px;color:var(--text3);margin-bottom:2px;font-weight:500}
+.tl-val{font-size:13px;font-weight:600}
+
+/* AVATAR */
+.avatar{border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;background:var(--lilac-bg);color:var(--lilac-text)}
+
+/* PAGO ROW */
+.pago-row{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:11px 14px;margin-bottom:8px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.pago-row:hover{border-color:var(--border2)}
+
+/* DOCS */
+.doc-item{display:flex;align-items:center;gap:12px;padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:8px}
+.doc-item:hover{border-color:var(--border2)}
+.doc-icon{width:38px;height:38px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.doc-icon-contrato{background:var(--vino-light);color:var(--vino)}
+.doc-icon-pago{background:var(--ok-bg);color:var(--ok-text)}
+.doc-icon-otro{background:var(--info-bg);color:var(--info-text)}
+.doc-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.doc-meta{font-size:11px;color:var(--text3);margin-top:2px}
+.doc-info{flex:1;min-width:0}
+.doc-actions{display:flex;gap:6px;flex-shrink:0}
+.empty-state{text-align:center;padding:28px 20px;color:var(--text3)}
+.empty-state .ti{font-size:36px;display:block;margin-bottom:8px;opacity:.35}
+.empty-state p{font-size:13px}
+
+/* SEARCH */
+.search-bar{padding:8px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:13px;font-family:var(--font)}
+.search-bar:focus{outline:none;border-color:var(--vino)}
+
+/* MODAL */
+.overlay{display:none;position:fixed;inset:0;background:rgba(89,29,51,.4);z-index:200;align-items:center;justify-content:center;padding:16px}
+.overlay.open{display:flex}
+.modal{background:var(--surface);border-radius:var(--radius-lg);padding:22px;width:100%;max-width:440px;box-shadow:0 20px 60px rgba(89,29,51,.2);border:1px solid var(--border)}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.modal-title{font-size:15px;font-weight:700;color:var(--text)}
+
+/* LOADING */
+.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;color:var(--text3);gap:12px}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--vino);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* CLIENTE CARD (dashboard) */
+.client-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:8px;cursor:pointer;transition:border .15s}
+.client-row:hover{border-color:var(--vino-border);background:var(--vino-light)}
+
+/* MOBILE */
+@media(max-width:480px){
+  .content{padding:12px}
+  .topbar{padding:0 14px}
+  .nav{padding:0 10px}
+  .tbl th,.tbl td{padding:9px 10px}
+  .card{padding:14px}
+  .hide-mobile{display:none}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-brand">
+    <div class="topbar-logo"><i class="ti ti-chart-dots-3"></i></div>
+    <div>
+      <div class="topbar-name">Sinergia Digital</div>
+      <div class="topbar-sub">CRM de clientes</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:14px">
+    <div class="sync-indicator">
+      <div class="sync-dot" id="sync-dot"></div>
+      <span id="sync-label">Cargando...</span>
+    </div>
+    <div class="topbar-date" id="today-label"></div>
+  </div>
+</div>
+
+<nav class="nav">
+  <button class="nav-btn active" onclick="goTo('dashboard',this)"><i class="ti ti-layout-dashboard"></i>Dashboard</button>
+  <button class="nav-btn" onclick="goTo('clientes',this)"><i class="ti ti-users"></i>Clientes</button>
+  <button class="nav-btn" onclick="goTo('pagos',this)"><i class="ti ti-credit-card"></i>Pagos</button>
+  <button class="nav-btn" onclick="goTo('alertas',this)"><i class="ti ti-bell"></i>Alertas <span class="alert-chip" id="alert-badge" style="display:none">0</span></button>
+  <button class="nav-btn" onclick="goTo('prospectos',this)"><i class="ti ti-target"></i>Prospectos</button>
+  <button class="nav-btn" onclick="goTo('finanzas',this)"><i class="ti ti-wallet"></i>Finanzas</button>
+  <button class="nav-btn" onclick="goTo('nuevo',this)"><i class="ti ti-plus"></i>Nuevo cliente</button>
+</nav>
+
+<div class="content">
+
+  <!-- DASHBOARD -->
+  <div class="view active" id="view-dashboard">
+    <div class="page-header"><h2>Dashboard</h2><button class="btn btn-sm" onclick="recargar()"><i class="ti ti-refresh"></i>Actualizar</button></div>
+    <div class="metrics" id="metrics-row"><div class="loading"><div class="spinner"></div></div></div>
+    <div class="card-grid">
+      <div class="card"><div class="section-title">Vencimientos próximos — 30 días</div><div id="upcoming-list"><div class="loading"><div class="spinner"></div></div></div></div>
+      <div class="card"><div class="section-title">Clientes activos</div><div id="active-clients-list"><div class="loading"><div class="spinner"></div></div></div></div>
+    </div>
+  </div>
+
+  <!-- CLIENTES -->
+  <div class="view" id="view-clientes">
+    <div class="page-header">
+      <h2>Clientes</h2>
+      <div class="btn-group">
+        <input class="search-bar" placeholder="Buscar..." id="search-input" oninput="renderClientes()" style="width:180px">
+        <select class="search-bar" id="filter-estado" onchange="renderClientes()" style="width:auto">
+          <option value="">Todos</option><option>Activo</option><option>Pausado</option><option>Terminado</option>
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="goTo('nuevo',document.querySelector('[onclick*=nuevo]'))"><i class="ti ti-plus"></i>Agregar</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="tbl"><thead><tr>
+        <th>Cliente</th><th>Servicio</th><th>Plan</th><th class="hide-mobile">Modalidad</th><th>Monto/mes</th><th>Próx. pago</th><th>Docs</th><th>Estado</th><th></th>
+      </tr></thead><tbody id="clientes-tbody"><tr><td colspan="9"><div class="loading"><div class="spinner"></div></div></td></tr></tbody></table>
+    </div>
+  </div>
+
+  <!-- PAGOS -->
+  <div class="view" id="view-pagos">
+    <div class="page-header">
+      <h2>Historial de pagos</h2>
+      <select class="search-bar" id="filter-cliente-pagos" onchange="renderPagos()" style="width:auto">
+        <option value="">Todos los clientes</option>
+      </select>
+    </div>
+    <div class="table-wrap">
+      <table class="tbl"><thead><tr>
+        <th>Fecha</th><th>Cliente</th><th>Concepto</th><th>Monto</th><th>Estado</th><th>Comprobante</th><th class="hide-mobile">Ciclo</th>
+      </tr></thead><tbody id="pagos-tbody"></tbody></table>
+    </div>
+  </div>
+
+  <!-- ALERTAS -->
+  <div class="view" id="view-alertas">
+    <div class="page-header"><h2>Alertas y vencimientos</h2></div>
+    <div id="alertas-list"></div>
+  </div>
+
+  <!-- FINANZAS -->
+  <div class="view" id="view-finanzas">
+    <div class="page-header">
+      <h2>Finanzas — Caja Sinergia Digital</h2>
+      <div class="btn-group">
+        <button class="btn btn-sm" onclick="abrirNuevoEgreso()"><i class="ti ti-minus"></i>Registrar egreso</button>
+        <button class="btn btn-sm" onclick="abrirNuevoMiembro()"><i class="ti ti-user-plus"></i>Agregar al equipo</button>
+      </div>
+    </div>
+
+    <!-- Selector de moneda para el balance -->
+    <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center">
+      <span style="font-size:13px;color:var(--text2);font-weight:500">Ver balance en:</span>
+      <button class="btn btn-sm" id="moneda-btn-S/" onclick="setMonedaBalance('S/')" style="border-color:var(--vino);color:var(--vino)">S/ Soles</button>
+      <button class="btn btn-sm" id="moneda-btn-USD" onclick="setMonedaBalance('USD')">USD</button>
+      <button class="btn btn-sm" id="moneda-btn-COP" onclick="setMonedaBalance('COP')">COP</button>
+    </div>
+
+    <!-- Balance cards -->
+    <div class="metrics" id="balance-metrics" style="margin-bottom:20px"></div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+
+      <!-- EGRESOS -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div class="section-title" style="margin:0;border:none;padding:0">Egresos registrados</div>
+          <div style="display:flex;gap:6px">
+            <select class="search-bar" id="filter-egreso-tipo" onchange="renderFinanzas()" style="width:auto;font-size:12px">
+              <option value="">Todos</option>
+              <option>Sueldo</option>
+              <option>Gasto operativo</option>
+              <option>Retiro personal</option>
+              <option>Otro</option>
+            </select>
+            <select class="search-bar" id="filter-egreso-moneda" onchange="renderFinanzas()" style="width:auto;font-size:12px">
+              <option value="">Todas las monedas</option>
+              <option>S/</option><option>USD</option><option>COP</option>
+            </select>
+          </div>
+        </div>
+        <div id="egresos-list"></div>
+      </div>
+
+      <!-- EQUIPO -->
+      <div class="card">
+        <div class="section-title">Equipo Sinergia Digital</div>
+        <div id="equipo-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROSPECTOS -->
+  <div class="view" id="view-prospectos">
+    <div class="page-header">
+      <h2>Prospectos <span id="pct-badge" class="badge badge-vino" style="font-size:13px;margin-left:8px"></span></h2>
+      <button class="btn btn-primary btn-sm" onclick="abrirNuevoProspecto()"><i class="ti ti-plus"></i>Agregar prospecto</button>
+    </div>
+    <div class="metrics" id="prospectos-stats" style="margin-bottom:16px"></div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <input class="search-bar" placeholder="Buscar..." id="search-prospectos" oninput="renderProspectos()" style="width:180px">
+      <select class="search-bar" id="filter-estado-prospecto" onchange="renderProspectos()" style="width:auto">
+        <option value="">Todos los estados</option>
+        <option>Pendiente</option>
+        <option>Agendado</option>
+        <option>Se mostró propuesta</option>
+        <option>Se cerró</option>
+        <option>No se cerró</option>
+        <option>Seguimiento</option>
+      </select>
+    </div>
+    <div class="table-wrap">
+      <table class="tbl"><thead><tr>
+        <th>Cliente / Empresa</th><th>Nicho</th><th>Teléfono</th><th>País</th><th>Instagram / Web</th><th>Reunión</th><th>Estado</th><th>Comentario</th><th></th>
+      </tr></thead><tbody id="prospectos-tbody"></tbody></table>
+    </div>
+  </div>
+
+  <!-- NUEVO / EDITAR CLIENTE -->
+  <div class="view" id="view-nuevo">
+    <div class="page-header"><h2 id="form-title">Nuevo cliente</h2></div>
+    <div class="card">
+      <div class="section-title">Datos del cliente</div>
+      <div class="form-row">
+        <div class="form-group"><label>Nombre / Razón social</label><input id="f-nombre" placeholder="Ej: Glow Aesthetic Center"></div>
+        <div class="form-group"><label>Contacto / WhatsApp</label><input id="f-contacto" placeholder="+51 999 999 999"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>País</label><input id="f-pais" placeholder="Perú"></div>
+        <div class="form-group"><label>Estado</label><select id="f-estado"><option>Activo</option><option>Pausado</option><option>Terminado</option></select></div>
+      </div>
+      <div class="section-title" style="margin-top:16px">Servicio contratado</div>
+      <div class="form-row form-row-3">
+        <div class="form-group"><label>Tipo de servicio</label><select id="f-servicio"><option>Meta Ads</option><option>Guiones</option><option>Edición</option><option>Guiones + Edición</option><option>Full Service</option></select></div>
+        <div class="form-group"><label>Plan</label><select id="f-plan"><option>Lite</option><option>Pro</option><option>Custom</option></select></div>
+        <div class="form-group"><label>Modalidad</label><select id="f-modalidad" onchange="toggleModalidad()"><option value="3meses">3 meses (50/50)</option><option value="mensual">Mensual adelantado</option></select></div>
+      </div>
+      <div class="form-row form-row-3">
+        <div class="form-group"><label>Monto mensual</label><input id="f-monto" type="number" placeholder="800" oninput="updateEstructura()"></div>
+        <div class="form-group"><label>Moneda</label><select id="f-moneda" onchange="updateEstructura()"><option>USD</option><option>S/</option><option>COP</option></select></div>
+        <div class="form-group"><label>Inicio del contrato</label><input id="f-inicio" type="date"></div>
+      </div>
+      <div class="section-title" style="margin-top:16px">Pagos</div>
+      <div class="hint-box" id="pagos-estructura"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Fecha pago 1</label><input id="f-fp1" type="date"></div>
+        <div class="form-group"><label>Monto pago 1</label><input id="f-mp1" type="number"></div>
+      </div>
+      <div id="pago2-row" class="form-row">
+        <div class="form-group"><label>Fecha pago 2</label><input id="f-fp2" type="date"></div>
+        <div class="form-group"><label>Monto pago 2</label><input id="f-mp2" type="number"></div>
+      </div>
+      <div class="form-group form-row-1"><label>Notas internas</label><textarea id="f-notas" rows="2" placeholder="Condiciones especiales, acuerdos, observaciones..."></textarea></div>
+      <div class="btn-group" style="margin-top:18px;justify-content:flex-end">
+        <button class="btn" onclick="cancelForm()">Cancelar</button>
+        <button class="btn btn-primary" id="btn-guardar" onclick="guardarCliente()"><i class="ti ti-device-floppy"></i>Guardar cliente</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DETALLE CLIENTE -->
+  <div class="view" id="view-detalle">
+    <div class="page-header">
+      <button class="btn btn-sm" onclick="goTo('clientes',document.querySelector('[onclick*=clientes]'))"><i class="ti ti-arrow-left"></i>Volver</button>
+      <div class="btn-group">
+        <button class="btn btn-sm btn-danger" id="btn-eliminar" onclick="eliminarCliente()"><i class="ti ti-trash"></i>Eliminar</button>
+        <button class="btn btn-sm" id="btn-editar" onclick="editarCliente()"><i class="ti ti-edit"></i>Editar</button>
+        <button class="btn btn-sm btn-primary" id="btn-renovar" onclick="renovarCliente()"><i class="ti ti-refresh"></i>Renovar</button>
+      </div>
+    </div>
+    <div id="detalle-content"></div>
+  </div>
+
+</div><!-- /content -->
+
+<!-- MODAL: egreso -->
+<div class="overlay" id="modal-egreso">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-egreso-title">Registrar egreso</span>
+      <button class="btn btn-icon btn-sm" onclick="closeModal('modal-egreso')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Fecha</label><input id="eg-fecha" type="date"></div>
+      <div class="form-group"><label>Tipo</label>
+        <select id="eg-tipo">
+          <option>Sueldo</option>
+          <option>Gasto operativo</option>
+          <option>Retiro personal</option>
+          <option>Otro</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Destinatario / Concepto</label>
+        <input id="eg-destinatario" placeholder="Ej: Ale — sueldo julio, Canva anual...">
+      </div>
+      <div class="form-group"><label>Miembro del equipo (opcional)</label>
+        <select id="eg-miembro"><option value="">— Ninguno —</option></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Monto</label><input id="eg-monto" type="number" placeholder="0"></div>
+      <div class="form-group"><label>Moneda</label>
+        <select id="eg-moneda"><option>S/</option><option>USD</option><option>COP</option></select>
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:18px"><label>Motivo / Notas</label>
+      <textarea id="eg-motivo" rows="2" placeholder="Descripción del egreso..."></textarea>
+    </div>
+    <div class="btn-group" style="justify-content:flex-end">
+      <button class="btn btn-sm" onclick="closeModal('modal-egreso')">Cancelar</button>
+      <button class="btn btn-primary btn-sm" onclick="guardarEgreso()"><i class="ti ti-device-floppy"></i>Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: miembro equipo -->
+<div class="overlay" id="modal-miembro">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Agregar miembro del equipo</span>
+      <button class="btn btn-icon btn-sm" onclick="closeModal('modal-miembro')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Nombre</label><input id="mb-nombre" placeholder="Ej: Alejandra Hurtado"></div>
+      <div class="form-group"><label>Rol</label><input id="mb-rol" placeholder="Ej: Directora creativa, Editor..."></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Tipo de pago</label>
+        <select id="mb-tipo"><option value="fijo">Fijo mensual</option><option value="variable">Variable</option></select>
+      </div>
+      <div class="form-group"><label>Monto fijo (si aplica)</label><input id="mb-monto" type="number" placeholder="0"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Moneda</label>
+        <select id="mb-moneda"><option>S/</option><option>USD</option><option>COP</option></select>
+      </div>
+      <div class="form-group"><label>Estado</label>
+        <select id="mb-estado"><option>Activo</option><option>Inactivo</option></select>
+      </div>
+    </div>
+    <div class="btn-group" style="justify-content:flex-end;margin-top:8px">
+      <button class="btn btn-sm" onclick="closeModal('modal-miembro')">Cancelar</button>
+      <button class="btn btn-primary btn-sm" onclick="guardarMiembro()"><i class="ti ti-device-floppy"></i>Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: prospecto -->
+<div class="overlay" id="modal-prospecto">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-prospecto-title">Nuevo prospecto</span>
+      <button class="btn btn-icon btn-sm" onclick="closeModal('modal-prospecto')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Nombre / Empresa</label><input id="pr-nombre" placeholder="Ej: Clínica Bella"></div>
+      <div class="form-group"><label>Nicho</label><input id="pr-nicho" placeholder="Ej: Estética, Salud, Moda..."></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Número de teléfono</label><input id="pr-telefono" placeholder="+51 999 999 999"></div>
+      <div class="form-group"><label>País</label><input id="pr-pais" placeholder="Perú"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Instagram o Sitio Web</label><input id="pr-ig" placeholder="@usuario o www.sitio.com"></div>
+      <div class="form-group"><label>Enlace (propuesta / drive)</label><input id="pr-enlace" placeholder="https://..."></div>
+    </div>
+    <div class="form-group" style="margin-bottom:10px"><label>Estado</label>
+      <select id="pr-estado">
+        <option>Pendiente</option>
+        <option>Agendado</option>
+        <option>Se mostró propuesta</option>
+        <option>Se cerró</option>
+        <option>No se cerró</option>
+        <option>Seguimiento</option>
+      </select>
+    </div>
+    <div class="form-row" style="margin-bottom:10px">
+      <div class="form-group"><label>Fecha de reunión</label><input id="pr-fecha-reunion" type="date"></div>
+      <div class="form-group"><label>Hora (Lima)</label><input id="pr-hora-reunion" type="time" value="10:00"></div>
+    </div>
+    <div class="form-group" style="margin-bottom:10px">
+      <label>Link de Zoom</label>
+      <input id="pr-zoom" placeholder="https://zoom.us/j...">
+    </div>
+    <div class="form-group" style="margin-bottom:18px"><label>Comentario</label>
+      <textarea id="pr-comentario" rows="2" placeholder="Notas sobre la reunión, objeciones, próximos pasos..."></textarea>
+    </div>
+    <div class="btn-group" style="justify-content:flex-end">
+      <button class="btn btn-sm" onclick="closeModal('modal-prospecto')">Cancelar</button>
+      <button class="btn btn-primary btn-sm" onclick="guardarProspecto()"><i class="ti ti-device-floppy"></i>Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: documento -->
+<div class="overlay" id="modal-doc">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-doc-title">Agregar documento</span>
+      <button class="btn btn-icon btn-sm" onclick="closeModal('modal-doc')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="form-group" style="margin-bottom:10px"><label>Tipo</label><select id="doc-tipo"><option value="contrato">Contrato</option><option value="pago">Comprobante de pago</option><option value="otro">Otro</option></select></div>
+    <div class="form-group" style="margin-bottom:10px"><label>Nombre del documento</label><input id="doc-nombre" placeholder="Ej: Contrato Ciclo 1 — Mayo 2025"></div>
+    <div class="form-group" style="margin-bottom:10px"><label>Link (Google Drive / Dropbox)</label><input id="doc-link" placeholder="https://drive.google.com/..."></div>
+    <div class="form-group" style="margin-bottom:18px"><label>Notas (opcional)</label><input id="doc-notas" placeholder="Ej: Firmado el 04/05/2025"></div>
+    <div class="btn-group" style="justify-content:flex-end">
+      <button class="btn btn-sm" onclick="closeModal('modal-doc')">Cancelar</button>
+      <button class="btn btn-primary btn-sm" onclick="guardarDoc()"><i class="ti ti-device-floppy"></i>Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: comprobante -->
+<div class="overlay" id="modal-comp">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Adjuntar comprobante</span>
+      <button class="btn btn-icon btn-sm" onclick="closeModal('modal-comp')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="alert alert-info" id="modal-comp-info" style="margin-bottom:14px"></div>
+    <div class="form-group" style="margin-bottom:10px"><label>Nombre del comprobante</label><input id="comp-nombre" placeholder="Ej: Transferencia BCP — 04 mayo 2025"></div>
+    <div class="form-group" style="margin-bottom:10px"><label>Link (Google Drive / Dropbox)</label><input id="comp-link" placeholder="https://drive.google.com/..."></div>
+    <div class="form-group" style="margin-bottom:18px"><label>Notas (opcional)</label><input id="comp-notas" placeholder="Ej: Pagó via PayPal, comisión 5.4%"></div>
+    <div class="btn-group" style="justify-content:flex-end">
+      <button class="btn btn-sm" onclick="closeModal('modal-comp')">Cancelar</button>
+      <button class="btn btn-primary btn-sm" onclick="guardarComprobante()"><i class="ti ti-device-floppy"></i>Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'https://script.google.com/macros/s/AKfycbzupkms2x22Qi0DsbGLW1adf0ltpP6-09v1SVWbs3PnOxIPwiaErhHwDznTyWoRI8iHWA/exec';
+let DB = [];
+let editingId = null;
+let _docClienteId = null;
+let _compCtx = null;
+
+// ── API ───────────────────────────────────────────────────────────────────────
+function setSyncState(state) {
+  const dot = document.getElementById('sync-dot');
+  const label = document.getElementById('sync-label');
+  dot.className = 'sync-dot' + (state === 'syncing' ? ' syncing' : state === 'error' ? ' error' : '');
+  label.textContent = state === 'syncing' ? 'Sincronizando...' : state === 'error' ? 'Sin conexión' : 'Sincronizado';
+}
+
+async function apiGet(action, params = {}) {
+  const qs = new URLSearchParams({ action, ...params }).toString();
+  const res = await fetch(`${API}?${qs}`);
+  return res.json();
+}
+
+async function apiPost(action, data = {}) {
+  // Use GET with encoded data to avoid CORS issues with Apps Script
+  const encoded = encodeURIComponent(JSON.stringify(data.data || {}));
+  const params = new URLSearchParams({ action });
+  if (data.data) params.set('data', encoded);
+  if (data.id) params.set('id', data.id);
+  const res = await fetch(`${API}?${params.toString()}`);
+  return res.json();
+}
+
+async function recargar() {
+  setSyncState('syncing');
   try {
-    switch (p.action) {
-      // CLIENTES
-      case 'getAll':           result = getAll(); break;
-      case 'getClientes':      result = getClientes(); break;
-      case 'saveCliente':      result = saveCliente(JSON.parse(decodeURIComponent(p.data))); break;
-      case 'deleteCliente':    result = deleteCliente(p.id); break;
-      // PAGOS
-      case 'savePago':         result = savePago(JSON.parse(decodeURIComponent(p.data))); break;
-      case 'updatePago':       result = savePago(JSON.parse(decodeURIComponent(p.data))); break;
-      // DOCUMENTOS
-      case 'saveDoc':          result = saveDoc(JSON.parse(decodeURIComponent(p.data))); break;
-      case 'deleteDoc':        result = deleteDoc(p.id); break;
-      // PROSPECTOS
-      case 'getProspectos':    result = getProspectos(); break;
-      case 'saveProspecto':    result = saveProspecto(JSON.parse(decodeURIComponent(p.data))); break;
-      case 'deleteProspecto':  result = deleteProspecto(p.id); break;
-      // EGRESOS
-      case 'getEgresos':       result = getEgresos(); break;
-      case 'saveEgreso':       result = saveEgreso(JSON.parse(decodeURIComponent(p.data))); break;
-      case 'deleteEgreso':     result = deleteById('egresos', p.id); break;
-      // EQUIPO
-      case 'getEquipo':        result = getEquipo(); break;
-      case 'saveMiembro':      result = saveMiembro(JSON.parse(decodeURIComponent(p.data))); break;
-      case 'deleteMiembro':    result = deleteById('equipo', p.id); break;
-      default: result = { ok: false, error: 'Accion no reconocida: ' + p.action };
+    const r = await apiGet('getAll');
+    if (r.ok) {
+      DB = r.clientes || [];
+      PROSPECTOS = r.prospectos || [];
+      EGRESOS = r.egresos || [];
+      EQUIPO = r.equipo || [];
     }
-  } catch (err) {
-    result = { ok: false, error: err.message };
+    setSyncState('ok');
+    renderDashboard();
+    renderAlertas();
+    if (document.getElementById('view-clientes').classList.contains('active')) renderClientes();
+    if (document.getElementById('view-pagos').classList.contains('active')) renderPagos();
+    if (document.getElementById('view-prospectos').classList.contains('active')) renderProspectos();
+    if (document.getElementById('view-finanzas').classList.contains('active')) renderFinanzas();
+  } catch (e) {
+    setSyncState('error');
+    console.error(e);
   }
-  return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
 }
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
-function clean(val) {
-  if (val === null || val === undefined || val === '') return '';
-  if (val instanceof Date) {
-    const y = val.getFullYear();
-    const m = String(val.getMonth() + 1).padStart(2, '0');
-    const d = String(val.getDate()).padStart(2, '0');
-    return y + '-' + m + '-' + d;
-  }
-  const s = String(val);
-  if (s.match(/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)/)) {
-    const d = new Date(s);
-    if (!isNaN(d.getTime())) {
-      return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-    }
-  }
-  return s;
-}
-
-function getSheet(name) { return SS.getSheetByName(name); }
-
-function sheetToObjects(sheetName) {
-  const sheet = getSheet(sheetName);
-  if (!sheet) return [];
-  const data = sheet.getDataRange().getDisplayValues();
-  if (data.length <= 1) return [];
-  const headers = data[0].map(h => h.trim());
-  return data.slice(1).map(row => {
-    const obj = {};
-    headers.forEach((h, i) => { obj[h] = row[i] ? row[i].trim() : ''; });
-    return obj;
-  });
-}
-
-function findRowById(sheetName, id) {
-  const sheet = getSheet(sheetName);
-  if (!sheet) return -1;
-  const data = sheet.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][0]) === String(id)) return i + 1;
-  }
-  return -1;
-}
-
+function today() { return new Date().toISOString().split('T')[0]; }
+function parseDate(s) { if (!s) return null; const [y, m, d] = s.split('-'); return new Date(y, m - 1, d); }
+function fmtDate(s) { if (!s || s === '0' || s === 'undefined') return '—'; const d = parseDate(s); if (!d || isNaN(d.getTime())) return '—'; return d.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' }); }
+function diffDays(s) { if (!s || s === '0' || s === 'undefined') return null; const d = parseDate(s); if (!d || isNaN(d.getTime())) return null; return Math.round((d - parseDate(today())) / 864e5); }
+function initials(n) { return n.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase(); }
 function uid() { return 'id' + Date.now() + Math.random().toString(36).slice(2, 6); }
+function nextPago(c) { for (const ci of (c.ciclos || [])) for (const p of (ci.pagos || [])) if (p.estado === 'Pendiente') return { ...p, cicloNum: ci.num }; return null; }
 
-function deleteById(sheetName, id) {
-  const r = findRowById(sheetName, id);
-  if (r > 0) getSheet(sheetName).deleteRow(r);
-  return { ok: true };
+function estadoBadge(e) {
+  const m = { Activo: 'badge-ok', Pausado: 'badge-warn', Terminado: 'badge-gray' };
+  return `<span class="badge ${m[e] || 'badge-gray'}">${e}</span>`;
+}
+function pagoBadge(dias) {
+  if (dias === null) return '<span class="badge badge-gray">Sin fecha</span>';
+  if (dias < 0) return `<span class="badge badge-danger">Vencido ${Math.abs(dias)}d</span>`;
+  if (dias === 0) return '<span class="badge badge-danger">Hoy</span>';
+  if (dias <= 5) return `<span class="badge badge-danger">En ${dias}d</span>`;
+  if (dias <= 15) return `<span class="badge badge-warn">En ${dias}d</span>`;
+  return `<span class="badge badge-ok">En ${dias}d</span>`;
+}
+function tipoDocIcon(t) { return t === 'contrato' ? 'ti-file-text' : t === 'pago' ? 'ti-receipt' : 'ti-paperclip'; }
+function tipoDocClass(t) { return t === 'contrato' ? 'doc-icon-contrato' : t === 'pago' ? 'doc-icon-pago' : 'doc-icon-otro'; }
+function tipoDocLabel(t) { return t === 'contrato' ? 'Contrato' : t === 'pago' ? 'Comprobante' : 'Otro'; }
+
+// ── NAVEGACIÓN ────────────────────────────────────────────────────────────────
+function goTo(view, btn) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (view === 'dashboard') renderDashboard();
+  if (view === 'clientes') renderClientes();
+  if (view === 'pagos') renderPagos();
+  if (view === 'alertas') renderAlertas();
+  if (view === 'prospectos') renderProspectos();
+  if (view === 'finanzas') renderFinanzas();
+  if (view === 'nuevo') { editingId = null; resetForm(); }
+  window.scrollTo(0, 0);
 }
 
-function deleteProspecto(id) {
-  var sheet = getSheet('prospectos');
-  var r = findRowById('prospectos', id);
-  if (r > 0) {
-    var row = sheet.getRange(r, 1, 1, sheet.getLastColumn()).getValues()[0];
-    var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-    var nombreProspecto = '';
-    for (var i = 0; i < headers.length; i++) {
-      if (String(headers[i]).trim() === 'nombre') { nombreProspecto = String(row[i]); break; }
-    }
-    if (nombreProspecto) {
-      try { eliminarEventoCalendar(nombreProspecto); } catch(e) { Logger.log('Calendar error: ' + e.message); }
-    }
-    sheet.deleteRow(r);
-  }
-  return { ok: true };
-}
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
-function eliminarEventoCalendar(nombre) {
-  var calId = "sinergiamktingdigital@gmail.com";
-  var cal = CalendarApp.getCalendarById(calId);
-  if (!cal) { return; }
-  // Solo eliminar eventos FUTUROS — no tocamos el historial pasado
-  var ahora = new Date();
-  var hasta = new Date(ahora.getTime() + 365 * 24 * 3600000); // hasta 1 año adelante
-  var eventos = cal.getEvents(ahora, hasta);
-  for (var i = 0; i < eventos.length; i++) {
-    if (eventos[i].getTitle().indexOf("Reunion con " + nombre) >= 0) {
-      eventos[i].deleteEvent();
-    }
-  }
-}
+// ── DASHBOARD ─────────────────────────────────────────────────────────────────
+function renderDashboard() {
+  const activos = DB.filter(c => c.estado === 'Activo');
+  const allPagos = DB.flatMap(c => (c.ciclos || []).flatMap(ci => ci.pagos || []));
+  const pendientes = DB.flatMap(c => { const np = nextPago(c); return np ? [{ ...np, cliente: c.nombre, moneda: c.moneda, clienteId: c.id }] : []; });
+  const venc30 = pendientes.filter(p => { const d = diffDays(p.fecha); return d !== null && d <= 30; });
+  const totalDocs = DB.reduce((a, c) => a + (c.docs || []).length, 0);
+  const inactivos = DB.filter(c => c.estado !== 'Activo').length;
 
-// ── GET ALL (una sola llamada) ───────────────────────────────────────────────
-function getAll() {
-  try {
-    const clientes = getClientes();
-    const prospectos = getProspectos();
-    const egresos = getEgresos();
-    const equipo = getEquipo();
-    return {
-      ok: true,
-      clientes: clientes.data,
-      prospectos: prospectos.data,
-      egresos: egresos.data,
-      equipo: equipo.data
-    };
-  } catch(e) {
-    return { ok: false, error: e.message };
-  }
+  const suma = (mon, pagado) => DB.flatMap(c => (c.ciclos||[]).flatMap(ci =>
+    (ci.pagos||[]).filter(p => (pagado ? p.estado==='Pagado' : p.estado==='Pendiente') && c.moneda===mon)
+    .map(p => parseFloat(p.monto)||0)
+  )).reduce((a,b)=>a+b,0);
+
+  const cS=suma('S/',true), cU=suma('USD',true), cC=suma('COP',true);
+  const pS=suma('S/',false), pU=suma('USD',false), pC=suma('COP',false);
+
+  document.getElementById('metrics-row').innerHTML = `
+    <div class="metric metric-accent"><div class="metric-label">Clientes activos</div><div class="metric-val">${activos.length}</div><div class="metric-sub">${inactivos} inactivo${inactivos!==1?'s':''}</div></div>
+    <div class="metric"><div class="metric-label">Cobrado S/</div><div class="metric-val" style="font-size:18px">S/ ${cS.toLocaleString()}</div><div class="metric-sub" style="color:${pS>0?'#856404':'var(--text3)'}">Por cobrar: S/ ${pS.toLocaleString()}</div></div>
+    <div class="metric"><div class="metric-label">Cobrado USD</div><div class="metric-val" style="font-size:18px">$ ${cU.toLocaleString()}</div><div class="metric-sub" style="color:${pU>0?'#856404':'var(--text3)'}">Por cobrar: $ ${pU.toLocaleString()}</div></div>
+    <div class="metric"><div class="metric-label">Cobrado COP</div><div class="metric-val" style="font-size:18px">COP ${cC.toLocaleString()}</div><div class="metric-sub" style="color:${pC>0?'#856404':'var(--text3)'}">Por cobrar: COP ${pC.toLocaleString()}</div></div>
+    <div class="metric"><div class="metric-label">Vencen en 30d</div><div class="metric-val" style="color:${venc30.length>0?'#856404':'inherit'}">${venc30.length}</div><div class="metric-sub">requieren atención</div></div>
+    <div class="metric"><div class="metric-label">Documentos</div><div class="metric-val">${totalDocs}</div><div class="metric-sub">archivados</div></div>
+  `;
+
+  const ul = document.getElementById('upcoming-list');
+  ul.innerHTML = venc30.length === 0
+    ? '<div class="empty-state"><i class="ti ti-check"></i><p>Sin vencimientos próximos</p></div>'
+    : venc30.sort((a, b) => a.fecha.localeCompare(b.fecha)).map(p => {
+        const d = diffDays(p.fecha);
+        const dot = d < 0 ? '#dc3545' : d <= 5 ? '#dc3545' : d <= 15 ? '#ffc107' : '#28a745';
+        return `<div class="client-row" onclick="verDetalle(${p.clienteId})">
+          <div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${dot};margin-right:6px"></span><strong>${p.cliente}</strong><br><span style="font-size:11px;color:var(--text3)">${p.concepto}</span></div>
+          <div style="text-align:right"><div style="font-weight:600;font-size:13px">${p.moneda} ${parseFloat(p.monto).toLocaleString()}</div><div style="font-size:11px;color:var(--text3)">${fmtDate(p.fecha)}</div>${pagoBadge(d)}</div>
+        </div>`;
+      }).join('');
+
+  document.getElementById('active-clients-list').innerHTML = activos.length === 0
+    ? '<div class="empty-state"><i class="ti ti-user-off"></i><p>Sin clientes activos</p></div>'
+    : activos.map(c => {
+        const np = nextPago(c); const docs = c.docs || [];
+        return `<div class="client-row" onclick="verDetalle(this.dataset.id)" data-id="${c.id}">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="avatar" style="width:34px;height:34px;font-size:12px">${initials(c.nombre)}</div>
+            <div><strong style="font-size:13px">${c.nombre}</strong><br><span style="font-size:11px;color:var(--text3)">${c.servicio} — ${c.plan}</span></div>
+          </div>
+          <div style="text-align:right">
+            ${docs.length > 0 ? `<div style="font-size:11px;color:var(--text3);margin-bottom:3px"><i class="ti ti-paperclip" style="font-size:11px"></i> ${docs.length}</div>` : ''}
+            ${np ? pagoBadge(diffDays(np.fecha)) : '<span class="badge badge-ok">Al día</span>'}
+          </div>
+        </div>`;
+      }).join('');
 }
 
 // ── CLIENTES ──────────────────────────────────────────────────────────────────
-function getClientes() {
-  const clientes = sheetToObjects('clientes');
-  const pagos    = sheetToObjects('pagos');
-  const docs     = sheetToObjects('documentos');
-
-  const result = clientes.map(c => {
-    const misPagos = pagos.filter(p => p.clienteId === c.id);
-    const ciclosMap = {};
-    misPagos.forEach(p => {
-      const n = parseInt(p.ciclo) || 1;
-      if (!ciclosMap[n]) ciclosMap[n] = { num: n, inicio: '', fin: '', pagos: [] };
-      ciclosMap[n].pagos.push({
-        id: p.id, fecha: p.fecha, concepto: p.concepto,
-        monto: parseFloat(p.monto) || 0, estado: p.estado,
-        comprobante: p.comprobanteLink ? { nombre: p.comprobanteNombre, link: p.comprobanteLink, notas: p.comprobanteNotas } : null
-      });
-    });
-
-    let ciclosExtra = {};
-    try { ciclosExtra = JSON.parse(c.ciclosJson || '{}'); } catch(e) {}
-
-    let ciclos = Object.values(ciclosMap).sort((a, b) => a.num - b.num).map(ci => ({
-      ...ci,
-      inicio: (ciclosExtra[ci.num] || {}).inicio || c.inicio || '',
-      fin:    (ciclosExtra[ci.num] || {}).fin    || ''
-    }));
-
-    if (ciclos.length === 0) ciclos = [{ num: 1, inicio: c.inicio || '', fin: '', pagos: [] }];
-
-    const misDocs = docs.filter(d => d.clienteId === c.id).map(d => ({
-      id: d.id, tipo: d.tipo, nombre: d.nombre, link: d.link, notas: d.notas, fecha: d.fecha
-    }));
-
-    return {
-      id: c.id, nombre: c.nombre, contacto: c.contacto, pais: c.pais,
-      estado: c.estado, servicio: c.servicio, plan: c.plan, modalidad: c.modalidad,
-      monto: parseFloat(c.monto) || 0, moneda: c.moneda, inicio: c.inicio,
-      fp1: c.fp1, mp1: parseFloat(c.mp1) || 0, fp2: c.fp2,
-      mp2: parseFloat(c.mp2) || 0, notas: c.notas, ciclos, docs: misDocs
-    };
-  });
-  return { ok: true, data: result };
-}
-
-function saveCliente(data) {
-  const sheet = getSheet('clientes');
-  if (!data.id) data.id = uid();
-  const isNew = findRowById('clientes', data.id) < 0;
-  const ciclosJson = {};
-  (data.ciclos || []).forEach(ci => { ciclosJson[ci.num] = { inicio: ci.inicio||'', fin: ci.fin||'' }; });
-  const row = [
-    data.id, data.nombre, data.contacto||'', data.pais||'', data.estado,
-    data.servicio, data.plan, data.modalidad, data.monto, data.moneda,
-    data.inicio||'', data.fp1||'', data.mp1||0, data.fp2||'', data.mp2||0,
-    data.notas||'', JSON.stringify(ciclosJson), ''
-  ];
-  if (isNew) { sheet.appendRow(row); }
-  else { const r = findRowById('clientes', data.id); if (r > 0) sheet.getRange(r, 1, 1, row.length).setValues([row]); }
-  return { ok: true, id: data.id };
-}
-
-function deleteCliente(id) {
-  const r = findRowById('clientes', id);
-  if (r > 0) getSheet('clientes').deleteRow(r);
-  ['pagos','documentos'].forEach(name => {
-    const s = getSheet(name); if (!s) return;
-    const vals = s.getDataRange().getValues();
-    for (let i = vals.length - 1; i >= 1; i--) {
-      if (String(vals[i][1]) === String(id)) s.deleteRow(i + 1);
-    }
-  });
-  return { ok: true };
+function renderClientes() {
+  const q = (document.getElementById('search-input')?.value || '').toLowerCase();
+  const fe = document.getElementById('filter-estado')?.value || '';
+  const rows = DB.filter(c => (!q || c.nombre.toLowerCase().includes(q)) && (!fe || c.estado === fe));
+  document.getElementById('clientes-tbody').innerHTML = rows.length === 0
+    ? `<tr><td colspan="9"><div class="empty-state"><i class="ti ti-users-off"></i><p>Sin clientes</p></div></td></tr>`
+    : rows.map(c => {
+        const p = nextPago(c); const d = p ? diffDays(p.fecha) : null; const docs = c.docs || [];
+        return `<tr>
+          <td><div style="display:flex;align-items:center;gap:8px"><div class="avatar" style="width:28px;height:28px;font-size:11px">${initials(c.nombre)}</div><span style="font-weight:600">${c.nombre}</span></div></td>
+          <td>${c.servicio}</td><td><span class="badge badge-lilac">${c.plan}</span></td>
+          <td class="hide-mobile">${c.modalidad === '3meses' ? '3 meses' : 'Mensual'}</td>
+          <td style="font-weight:600">${c.moneda} ${parseFloat(c.monto).toLocaleString()}</td>
+          <td>${p ? `<div style="font-size:12px;color:var(--text2)">${fmtDate(p.fecha)}</div>${pagoBadge(d)}` : '—'}</td>
+          <td><span class="badge badge-gray"><i class="ti ti-paperclip" style="font-size:10px"></i> ${docs.length}</span></td>
+          <td>${estadoBadge(c.estado)}</td>
+          <td><button class="btn btn-sm btn-icon" onclick="verDetalle(this.dataset.id)" data-id="${c.id}"><i class="ti ti-eye"></i></button></td>
+        </tr>`;
+      }).join('');
 }
 
 // ── PAGOS ─────────────────────────────────────────────────────────────────────
-function savePago(data) {
-  const sheet = getSheet('pagos');
-  if (!data.id) data.id = uid();
-  const isNew = findRowById('pagos', data.id) < 0;
-  const row = [
-    data.id, data.clienteId, data.ciclo, data.fecha, data.concepto,
-    data.monto, data.estado,
-    data.comprobanteNombre||'', data.comprobanteLink||'', data.comprobanteNotas||''
-  ];
-  if (isNew) { sheet.appendRow(row); }
-  else { const r = findRowById('pagos', data.id); if (r > 0) sheet.getRange(r, 1, 1, row.length).setValues([row]); }
-  return { ok: true, id: data.id };
+function renderPagos() {
+  const fc = document.getElementById('filter-cliente-pagos')?.value || '';
+  const sel = document.getElementById('filter-cliente-pagos');
+  if (sel) { sel.innerHTML = '<option value="">Todos los clientes</option>' + DB.map(c => `<option value="${c.id}">${c.nombre}</option>`).join(''); if (fc) sel.value = fc; }
+  const rows = DB.filter(c => !fc || String(c.id) === fc).flatMap(c => (c.ciclos || []).flatMap(ci => (ci.pagos || []).map(p => ({ ...p, cliente: c.nombre, moneda: c.moneda, ciclo: ci.num, clienteId: c.id }))));
+  rows.sort((a, b) => b.fecha.localeCompare(a.fecha));
+  document.getElementById('pagos-tbody').innerHTML = rows.map(p => {
+    const bs = p.estado === 'Pagado' ? 'badge-ok' : 'badge-warn';
+    const compBtn = p.comprobante
+      ? `<a href="${p.comprobante.link}" target="_blank" class="btn btn-sm" style="font-size:11px;padding:3px 9px"><i class="ti ti-external-link"></i>${p.comprobante.nombre}</a>`
+      : `<button class="btn btn-sm" style="font-size:11px;padding:3px 9px" onclick="abrirComprobante('${p.clienteId}','${p.id}')"><i class="ti ti-link"></i>Adjuntar</button>`;
+    return `<tr><td>${fmtDate(p.fecha)}</td><td>${p.cliente}</td><td>${p.concepto}</td><td style="font-weight:600">${p.moneda} ${parseFloat(p.monto).toLocaleString()}</td><td><span class="badge ${bs}">${p.estado}</span></td><td>${compBtn}</td><td class="hide-mobile"><span class="badge badge-gray">Ciclo ${p.ciclo}</span></td></tr>`;
+  }).join('');
+}
+
+// ── ALERTAS ───────────────────────────────────────────────────────────────────
+function renderAlertas() {
+  const pendientes = DB.flatMap(c => { const np = nextPago(c); return np ? [{ ...np, cliente: c.nombre, moneda: c.moneda, clienteId: c.id }] : []; });
+  const vencidos = pendientes.filter(p => diffDays(p.fecha) < 0);
+  const urgentes = pendientes.filter(p => { const d = diffDays(p.fecha); return d >= 0 && d <= 5; });
+  const proximos = pendientes.filter(p => { const d = diffDays(p.fecha); return d >= 6 && d <= 15; });
+  let html = '';
+  if (!vencidos.length && !urgentes.length && !proximos.length) html = '<div class="alert alert-ok"><i class="ti ti-check"></i>Sin alertas. Todo al día.</div>';
+  const mkAlerts = (list, cls) => list.map(p => `<div class="alert ${cls}" onclick="verDetalle(${p.clienteId})" style="cursor:pointer"><i class="ti ti-bell"></i><div><strong>${p.cliente}</strong> — ${p.concepto}<br><span style="font-size:12px">${fmtDate(p.fecha)} · ${p.moneda} ${parseFloat(p.monto).toLocaleString()}</span></div></div>`).join('');
+  if (vencidos.length) { html += '<div class="alert-section-label">Pagos vencidos</div>' + mkAlerts(vencidos, 'alert-danger'); }
+  if (urgentes.length) { html += '<div class="alert-section-label">Urgentes (0–5 días)</div>' + mkAlerts(urgentes, 'alert-danger'); }
+  if (proximos.length) { html += '<div class="alert-section-label">Próximos (6–15 días)</div>' + mkAlerts(proximos, 'alert-warn'); }
+  document.getElementById('alertas-list').innerHTML = html;
+  const total = vencidos.length + urgentes.length;
+  const badge = document.getElementById('alert-badge');
+  badge.textContent = total; badge.style.display = total > 0 ? 'inline' : 'none';
+}
+
+// ── DETALLE ───────────────────────────────────────────────────────────────────
+function verDetalle(id) {
+  id = String(id);
+  const c = DB.find(x => String(x.id) === id); if (!c) return;
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-detalle').classList.add('active');
+  document.getElementById('btn-editar').setAttribute('data-id', id);
+  document.getElementById('btn-renovar').setAttribute('data-id', id);
+  document.getElementById('btn-eliminar').setAttribute('data-id', id);
+
+  const allPagos = (c.ciclos || []).flatMap(ci => ci.pagos || []);
+  const cobrado = allPagos.filter(p => p.estado === 'Pagado').reduce((a, p) => a + (parseFloat(p.monto) || 0), 0);
+  const porCobrar = allPagos.filter(p => p.estado === 'Pendiente').reduce((a, p) => a + (parseFloat(p.monto) || 0), 0);
+  const np = nextPago(c); const docs = c.docs || [];
+
+  const ciclosHTML = (c.ciclos || []).map(ci => `
+    <div style="margin-bottom:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">Ciclo ${ci.num} &nbsp;·&nbsp; ${fmtDate(ci.inicio)} → ${fmtDate(ci.fin)}</div>
+      ${(ci.pagos || []).map(p => `
+        <div class="pago-row">
+          <div>
+            <div style="font-weight:600;font-size:13px">${p.concepto}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">${fmtDate(p.fecha)}</div>
+            ${p.comprobante ? `<a href="${p.comprobante.link}" target="_blank" style="font-size:11px;color:var(--vino);display:inline-flex;align-items:center;gap:3px;margin-top:4px"><i class="ti ti-external-link" style="font-size:11px"></i>${p.comprobante.nombre}</a>` : ''}
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-weight:700;font-size:14px">${c.moneda} ${parseFloat(p.monto).toLocaleString()}</div>
+            <div style="display:flex;gap:6px;align-items:center;justify-content:flex-end;margin-top:5px;flex-wrap:wrap">
+              <span class="badge ${p.estado === 'Pagado' ? 'badge-ok' : 'badge-warn'}">${p.estado}</span>
+              ${p.estado === 'Pendiente' ? `<button class="btn btn-sm" style="padding:3px 9px;font-size:11px" onclick="marcarPagado('${id}',${ci.num},'${p.id}')">Marcar pagado</button>` : ''}
+              ${!p.comprobante ? `<button class="btn btn-sm" style="padding:3px 9px;font-size:11px" onclick="abrirComprobante('${id}','${p.id}')"><i class="ti ti-link" style="font-size:11px"></i>Comprobante</button>` : ''}
+            </div>
+          </div>
+        </div>`).join('')}
+    </div>`).join('');
+
+  const docsHTML = docs.length === 0
+    ? '<div class="empty-state"><i class="ti ti-file-off"></i><p>Sin documentos adjuntos aún</p></div>'
+    : docs.map(d => `
+      <div class="doc-item">
+        <div class="doc-icon ${tipoDocClass(d.tipo)}"><i class="ti ${tipoDocIcon(d.tipo)}"></i></div>
+        <div class="doc-info">
+          <div class="doc-name">${d.nombre}</div>
+          <div class="doc-meta"><span class="badge badge-gray" style="font-size:10px">${tipoDocLabel(d.tipo)}</span> · ${fmtDate(d.fecha)}${d.notas ? ' · ' + d.notas : ''}</div>
+        </div>
+        <div class="doc-actions">
+          <a href="${d.link}" target="_blank" class="btn btn-sm btn-icon"><i class="ti ti-external-link"></i></a>
+          <button class="btn btn-sm btn-icon btn-danger" onclick="eliminarDoc(${id},'${d.id}')"><i class="ti ti-trash"></i></button>
+        </div>
+      </div>`).join('');
+
+  document.getElementById('detalle-content').innerHTML = `
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px">
+      <div>
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
+            <div class="avatar" style="width:52px;height:52px;font-size:18px">${initials(c.nombre)}</div>
+            <div>
+              <div style="font-size:18px;font-weight:700;letter-spacing:-.02em">${c.nombre}</div>
+              <div style="font-size:13px;color:var(--text2);margin-top:2px">${c.contacto || ''} ${c.pais ? '· ' + c.pais : ''}</div>
+              <div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap">${estadoBadge(c.estado)} <span class="badge badge-lilac">${c.plan}</span> <span class="badge badge-vino">${c.servicio}</span></div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+            <div class="metric"><div class="metric-label">Mensual</div><div class="metric-val" style="font-size:18px">${c.moneda} ${parseFloat(c.monto).toLocaleString()}</div></div>
+            <div class="metric"><div class="metric-label">Cobrado</div><div class="metric-val" style="font-size:18px">${c.moneda} ${cobrado.toLocaleString()}</div></div>
+            <div class="metric"><div class="metric-label">Por cobrar</div><div class="metric-val" style="font-size:18px;color:${porCobrar > 0 ? '#856404' : 'inherit'}">${c.moneda} ${porCobrar.toLocaleString()}</div></div>
+          </div>
+          ${c.notas ? `<div style="margin-top:12px;background:var(--surface2);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;color:var(--text2);border:1px solid var(--border)"><i class="ti ti-notes" style="font-size:13px"></i> ${c.notas}</div>` : ''}
+        </div>
+        <div class="card">
+          <div class="section-title">Ciclos y pagos</div>
+          ${ciclosHTML || '<div class="empty-state"><p>Sin ciclos registrados</p></div>'}
+        </div>
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div class="section-title" style="margin:0;border:none;padding:0">Documentos <span class="badge badge-gray" style="margin-left:6px">${docs.length}</span></div>
+            <button class="btn btn-sm" onclick="abrirModalDoc(${id})"><i class="ti ti-plus"></i>Agregar</button>
+          </div>
+          ${docsHTML}
+        </div>
+      </div>
+      <div>
+        <div class="card card-sm">
+          <div class="section-title">Resumen</div>
+          <div class="timeline">
+            <div class="tl-item"><div class="tl-label">Modalidad</div><div class="tl-val">${c.modalidad === '3meses' ? '3 meses (50/50)' : 'Mensual'}</div></div>
+            <div class="tl-item"><div class="tl-label">Inicio</div><div class="tl-val">${fmtDate(c.inicio)}</div></div>
+            <div class="tl-item"><div class="tl-label">Ciclos activos</div><div class="tl-val">${(c.ciclos || []).length}</div></div>
+            ${np ? `<div class="tl-item"><div class="tl-label">Próximo pago</div><div class="tl-val">${fmtDate(np.fecha)}</div><div style="margin-top:4px">${pagoBadge(diffDays(np.fecha))}</div></div>` : ''}
+          </div>
+        </div>
+        ${docs.length > 0 ? `<div class="card card-sm">
+          <div class="section-title">Acceso rápido</div>
+          ${docs.slice(0, 5).map(d => `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
+            <i class="ti ${tipoDocIcon(d.tipo)}" style="color:var(--vino);font-size:14px"></i>
+            <a href="${d.link}" target="_blank" style="font-size:12px;font-weight:500;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)">${d.nombre}</a>
+            <i class="ti ti-external-link" style="font-size:12px;color:var(--text3)"></i>
+          </div>`).join('')}
+          ${docs.length > 5 ? `<div style="font-size:11px;color:var(--text3);text-align:center;padding-top:7px">+${docs.length - 5} más abajo</div>` : ''}
+        </div>` : ''}
+      </div>
+    </div>`;
+  window.scrollTo(0, 0);
+}
+
+// ── PAGOS / COMPROBANTES ──────────────────────────────────────────────────────
+async function marcarPagado(clienteId, cicloNum, pagoId) {
+  const c = DB.find(x => String(x.id) === String(clienteId)); if (!c) return;
+  const ci = (c.ciclos || []).find(x => x.num == cicloNum); if (!ci) return;
+  const p = (ci.pagos || []).find(x => x.id === pagoId); if (!p) return;
+  p.estado = 'Pagado';
+  setSyncState('syncing');
+  await apiPost('updatePago', { data: { 
+    id: p.id, clienteId: String(clienteId), ciclo: cicloNum, 
+    fecha: p.fecha, concepto: p.concepto, monto: p.monto, estado: 'Pagado', 
+    comprobanteNombre: p.comprobante?.nombre || '', 
+    comprobanteLink: p.comprobante?.link || '', 
+    comprobanteNotas: p.comprobante?.notas || '' 
+  }});
+  setSyncState('ok');
+  verDetalle(String(clienteId)); renderAlertas();
+}
+
+function abrirComprobante(clienteId, pagoId) {
+  _compCtx = { clienteId: parseInt(clienteId), pagoId };
+  const c = DB.find(x => String(x.id) === String(clienteId));
+  const p = (c?.ciclos || []).flatMap(ci => ci.pagos || []).find(x => x.id === pagoId);
+  document.getElementById('modal-comp-info').innerHTML = `<i class="ti ti-info-circle"></i> <strong>${p?.concepto}</strong> · ${c?.moneda} ${parseFloat(p?.monto).toLocaleString()} · ${fmtDate(p?.fecha)}`;
+  ['comp-nombre', 'comp-link', 'comp-notas'].forEach(id => document.getElementById(id).value = '');
+  openModal('modal-comp');
+}
+
+async function guardarComprobante() {
+  const nombre = document.getElementById('comp-nombre').value.trim();
+  const link = document.getElementById('comp-link').value.trim();
+  if (!nombre || !link) { alert('Nombre y link son obligatorios'); return; }
+  const c = DB.find(x => String(x.id) === String(_compCtx.clienteId)); if (!c) return;
+  let pagoData = null;
+  let cicloNum = null;
+  for (const ci of (c.ciclos || [])) {
+    const p = (ci.pagos || []).find(x => x.id === _compCtx.pagoId);
+    if (p) { p.comprobante = { nombre, link, notas: document.getElementById('comp-notas').value, fecha: today() }; pagoData = p; cicloNum = ci.num; break; }
+  }
+  closeModal('modal-comp');
+  setSyncState('syncing');
+  await apiPost('updatePago', { data: { id: pagoData.id, clienteId: _compCtx.clienteId, ciclo: cicloNum, fecha: pagoData.fecha, concepto: pagoData.concepto, monto: pagoData.monto, estado: pagoData.estado, comprobanteNombre: nombre, comprobanteLink: link, comprobanteNotas: document.getElementById('comp-notas').value } });
+  setSyncState('ok');
+  if (document.getElementById('view-detalle').classList.contains('active')) verDetalle(_compCtx.clienteId);
+  renderPagos();
 }
 
 // ── DOCUMENTOS ────────────────────────────────────────────────────────────────
-function saveDoc(data) {
-  if (!data.id) data.id = uid();
-  getSheet('documentos').appendRow([data.id, data.clienteId, data.tipo, data.nombre, data.link, data.notas||'', data.fecha]);
-  return { ok: true, id: data.id };
+function abrirModalDoc(clienteId) {
+  _docClienteId = clienteId;
+  ['doc-nombre', 'doc-link', 'doc-notas'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('doc-tipo').value = 'contrato';
+  const c = DB.find(x => String(x.id) === String(clienteId));
+  document.getElementById('modal-doc-title').textContent = `Agregar doc — ${c?.nombre || ''}`;
+  openModal('modal-doc');
 }
 
-// ── PROSPECTOS ────────────────────────────────────────────────────────────────
-function getProspectos() {
-  const rows = sheetToObjects('prospectos');
-  return { ok: true, data: rows.map(r => ({
-    id: r.id, nombre: r.nombre, nicho: r.nicho, telefono: r.telefono,
-    pais: r.pais, ig: r.ig, enlace: r.enlace, estado: r.estado,
-    comentario: r.comentario, fecha: r.fecha,
-    fechaReunion: r.fechaReunion||'', horaReunion: r.horaReunion||'', zoom: r.zoom||''
-  }))};
+async function guardarDoc() {
+  const nombre = document.getElementById('doc-nombre').value.trim();
+  const link = document.getElementById('doc-link').value.trim();
+  if (!nombre || !link) { alert('Nombre y link son obligatorios'); return; }
+  const c = DB.find(x => String(x.id) === String(_docClienteId)); if (!c) return;
+  const doc = { id: uid(), clienteId: _docClienteId, tipo: document.getElementById('doc-tipo').value, nombre, link, notas: document.getElementById('doc-notas').value, fecha: today() };
+  if (!c.docs) c.docs = [];
+  c.docs.push(doc);
+  closeModal('modal-doc');
+  setSyncState('syncing');
+  await apiPost('saveDoc', { data: doc });
+  setSyncState('ok');
+  verDetalle(_docClienteId);
 }
 
-function saveProspecto(data) {
-  const sheet = getSheet('prospectos');
-  if (!data.id) data.id = uid();
-  const isNew = findRowById('prospectos', data.id) < 0;
-  const row = [
-    data.id, data.nombre, data.nicho||'', data.telefono||'', data.pais||'',
-    data.ig||'', data.enlace||'', data.estado, data.comentario||'', data.fecha||'',
-    data.fechaReunion||'', data.horaReunion||'', data.zoom||''
-  ];
-  if (isNew) { sheet.appendRow(row); }
-  else { const r = findRowById('prospectos', data.id); if (r > 0) sheet.getRange(r, 1, 1, row.length).setValues([row]); }
+async function eliminarDoc(clienteId, docId) {
+  if (!confirm('¿Eliminar este documento?')) return;
+  const c = DB.find(x => String(x.id) === String(clienteId)); if (!c) return;
+  c.docs = (c.docs || []).filter(d => d.id !== docId);
+  setSyncState('syncing');
+  await apiPost('deleteDoc', { id: docId });
+  setSyncState('ok');
+  verDetalle(clienteId);
+}
 
-  // Crear evento en Google Calendar si tiene fecha de reunión y estado es Agendado
-  if (data.fechaReunion && data.estado === 'Agendado') {
-    try { crearEventoCalendar(data); } catch(e) { Logger.log('Calendar error: ' + e.message); }
+// ── FORMULARIO NUEVO/EDITAR ───────────────────────────────────────────────────
+function toggleModalidad() {
+  const m = document.getElementById('f-modalidad').value;
+  document.getElementById('pago2-row').style.display = m === '3meses' ? 'grid' : 'none';
+  updateEstructura();
+}
+function updateEstructura() {
+  const m = document.getElementById('f-modalidad')?.value;
+  const monto = parseFloat(document.getElementById('f-monto')?.value) || 0;
+  const mon = document.getElementById('f-moneda')?.value || '';
+  const el = document.getElementById('pagos-estructura'); if (!el) return;
+  el.innerHTML = m === '3meses'
+    ? `<strong>3 meses — estructura 50/50:</strong> Pago 1 = ${mon} ${monto.toLocaleString()} al inicio · Pago 2 = ${mon} ${(monto * 2).toLocaleString()} al día 45 (mes y medio)`
+    : `<strong>Mensual adelantado:</strong> ${mon} ${monto.toLocaleString()} al inicio de cada mes`;
+}
+
+function resetForm() {
+  ['f-nombre', 'f-contacto', 'f-pais', 'f-monto', 'f-fp1', 'f-mp1', 'f-fp2', 'f-mp2', 'f-notas'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('f-estado').value = 'Activo';
+  document.getElementById('f-servicio').value = 'Meta Ads';
+  document.getElementById('f-plan').value = 'Lite';
+  document.getElementById('f-modalidad').value = '3meses';
+  document.getElementById('f-moneda').value = 'USD';
+  document.getElementById('f-inicio').value = today();
+  document.getElementById('f-fp1').value = today();
+  document.getElementById('pago2-row').style.display = 'grid';
+  document.getElementById('form-title').textContent = 'Nuevo cliente';
+  document.getElementById('btn-guardar').innerHTML = '<i class="ti ti-device-floppy"></i>Guardar cliente';
+  updateEstructura();
+}
+
+function editarCliente() {
+  const id = document.getElementById('btn-editar').getAttribute('data-id');
+  const c = DB.find(x => String(x.id) === String(id)); if (!c) return;
+  editingId = id;
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-nuevo').classList.add('active');
+  document.getElementById('form-title').textContent = 'Editar cliente';
+  document.getElementById('btn-guardar').innerHTML = '<i class="ti ti-device-floppy"></i>Guardar cambios';
+  document.getElementById('f-nombre').value = c.nombre;
+  document.getElementById('f-contacto').value = c.contacto || '';
+  document.getElementById('f-pais').value = c.pais || '';
+  document.getElementById('f-estado').value = c.estado;
+  document.getElementById('f-servicio').value = c.servicio;
+  document.getElementById('f-plan').value = c.plan;
+  document.getElementById('f-modalidad').value = c.modalidad;
+  document.getElementById('f-monto').value = c.monto;
+  document.getElementById('f-moneda').value = c.moneda;
+  document.getElementById('f-inicio').value = c.inicio;
+  document.getElementById('f-fp1').value = c.fp1 || '';
+  document.getElementById('f-mp1').value = c.mp1 || '';
+  document.getElementById('f-fp2').value = c.fp2 || '';
+  document.getElementById('f-mp2').value = c.mp2 || 0;
+  document.getElementById('f-notas').value = c.notas || '';
+  toggleModalidad();
+}
+
+async function renovarCliente() {
+  const id = document.getElementById('btn-renovar').getAttribute('data-id');
+  const c = DB.find(x => String(x.id) === String(id)); if (!c) return;
+  const last = (c.ciclos || [])[c.ciclos.length - 1];
+  if (!last) { alert('No hay ciclos previos'); return; }
+  const newStart = new Date(parseDate(last.fin || last.inicio)); newStart.setDate(newStart.getDate() + 1);
+  const ns = newStart.toISOString().split('T')[0];
+  let fin, pagos;
+  if (c.modalidad === '3meses') {
+    const fd = new Date(newStart); fd.setMonth(fd.getMonth() + 3); fd.setDate(fd.getDate() - 1);
+    const fp2 = new Date(newStart); fp2.setDate(fp2.getDate() + 45);
+    fin = fd.toISOString().split('T')[0];
+    pagos = [
+      { id: uid(), fecha: ns, concepto: `Pago 1 — Ciclo ${last.num + 1}`, monto: c.monto, estado: 'Pendiente', comprobante: null },
+      { id: uid(), fecha: fp2.toISOString().split('T')[0], concepto: `Pago 2 — Ciclo ${last.num + 1}`, monto: c.monto * 2, estado: 'Pendiente', comprobante: null }
+    ];
+  } else {
+    const fd = new Date(newStart); fd.setMonth(fd.getMonth() + 1); fd.setDate(fd.getDate() - 1);
+    fin = fd.toISOString().split('T')[0];
+    pagos = [{ id: uid(), fecha: ns, concepto: `Mes ${last.num + 1}`, monto: c.monto, estado: 'Pendiente', comprobante: null }];
   }
-
-  return { ok: true, id: data.id };
+  const newCiclo = { num: last.num + 1, inicio: ns, fin, pagos };
+  c.ciclos.push(newCiclo);
+  setSyncState('syncing');
+  // Save ciclo metadata and new pagos
+  await apiPost('saveCliente', { data: { ...c } });
+  for (const p of pagos) {
+    await apiPost('savePago', { data: {
+      id: p.id, clienteId: id, ciclo: newCiclo.num,
+      fecha: p.fecha || today(), concepto: p.concepto,
+      monto: p.monto, estado: p.estado,
+      comprobanteNombre: '', comprobanteLink: '', comprobanteNotas: ''
+    }});
+  }
+  setSyncState('ok');
+  verDetalle(id); renderAlertas();
+  alert(`Ciclo ${newCiclo.num} creado exitosamente.`);
 }
 
-function crearEventoCalendar(data) {
-  var calId = "sinergiamktingdigital@gmail.com";
-  var cal = CalendarApp.getCalendarById(calId);
-  if (!cal) { return; }
-  var partes = data.fechaReunion.split("-");
-  var hora = (data.horaReunion || "10:00").split(":");
-  var inicio = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]), Number(hora[0]), Number(hora[1]));
-  var fin = new Date(inicio.getTime() + 3600000);
-  var titulo = "Reunion con " + data.nombre;
-  if (data.nicho) { titulo = titulo + " (" + data.nicho + ")"; }
-  var lineas = [];
-  if (data.zoom) { lineas.push("Zoom: " + data.zoom); }
-  if (data.telefono) { lineas.push("Tel: " + data.telefono); }
-  if (data.ig) { lineas.push("IG: " + data.ig); }
-  if (data.comentario) { lineas.push("Notas: " + data.comentario); }
-  var desc = lineas.join(" | ");
-  var desde = new Date(inicio.getTime() - 604800000);
-  var hasta = new Date(inicio.getTime() + 604800000);
-  var eventos = cal.getEvents(desde, hasta);
-  var encontrado = false;
-  for (var j = 0; j < eventos.length; j++) {
-    if (eventos[j].getTitle().indexOf(data.nombre) >= 0) {
-      eventos[j].setTime(inicio, fin);
-      eventos[j].setDescription(desc);
-      if (data.zoom) { eventos[j].setLocation(data.zoom); }
-      encontrado = true;
-      break;
+async function guardarCliente() {
+  const nombre = document.getElementById('f-nombre').value.trim();
+  if (!nombre) { alert('El nombre es obligatorio'); return; }
+  const monto = parseFloat(document.getElementById('f-monto').value) || 0;
+  const modalidad = document.getElementById('f-modalidad').value;
+  const inicio = document.getElementById('f-inicio').value || today();
+  const fp1 = document.getElementById('f-fp1').value || inicio || today();
+  const mp1 = parseFloat(document.getElementById('f-mp1').value) || monto;
+  const fp2 = document.getElementById('f-fp2').value || '';
+  const mp2 = parseFloat(document.getElementById('f-mp2').value) || 0;
+  let fin = '';
+  if (modalidad === '3meses') { const d = parseDate(inicio); d.setMonth(d.getMonth() + 3); d.setDate(d.getDate() - 1); fin = d.toISOString().split('T')[0]; }
+  else { const d = parseDate(inicio); d.setMonth(d.getMonth() + 1); d.setDate(d.getDate() - 1); fin = d.toISOString().split('T')[0]; }
+  const p1id = uid();
+  let ciclosPagos = [{ id: p1id, fecha: fp1 || today(), concepto: 'Pago 1 — Ciclo 1', monto: mp1, estado: 'Pendiente', comprobante: null }];
+  if (modalidad === '3meses' && fp2) ciclosPagos.push({ id: uid(), fecha: fp2, concepto: 'Pago 2 — Ciclo 1', monto: mp2, estado: 'Pendiente', comprobante: null });
+
+  const data = {
+    nombre, contacto: document.getElementById('f-contacto').value, pais: document.getElementById('f-pais').value,
+    estado: document.getElementById('f-estado').value, servicio: document.getElementById('f-servicio').value,
+    plan: document.getElementById('f-plan').value, modalidad, monto,
+    moneda: document.getElementById('f-moneda').value, inicio, fp1, mp1, fp2, mp2,
+    notas: document.getElementById('f-notas').value
+  };
+
+  setSyncState('syncing');
+  if (editingId) {
+    const c = DB.find(x => String(x.id) === String(editingId));
+    const ciclosOrig = c.ciclos; const docsOrig = c.docs;
+    Object.assign(c, data);
+    c.ciclos = ciclosOrig; c.docs = docsOrig;
+    data.id = editingId; data.ciclos = ciclosOrig; data.docs = docsOrig;
+    await apiPost('saveCliente', { data });
+    setSyncState('ok');
+    verDetalle(editingId);
+  } else {
+    data.id = uid(); data.ciclos = [{ num: 1, inicio, fin, pagos: ciclosPagos }]; data.docs = [];
+    DB.push(data);
+    await apiPost('saveCliente', { data });
+    for (const p of ciclosPagos) {
+      await apiPost('savePago', { data: { 
+        id: p.id, clienteId: data.id, ciclo: 1,
+        fecha: p.fecha || today(), concepto: p.concepto,
+        monto: p.monto, estado: p.estado,
+        comprobanteNombre: '', comprobanteLink: '', comprobanteNotas: ''
+      }});
     }
+    setSyncState('ok');
+    goTo('clientes', document.querySelector('[onclick*=clientes]'));
   }
-  if (!encontrado) {
-    cal.createEvent(titulo, inicio, fin, {description: desc, location: data.zoom || ""});
+  editingId = null;
+}
+
+function cancelForm() { editingId ? verDetalle(editingId) : goTo('clientes', document.querySelector('[onclick*=clientes]')); }
+
+async function eliminarCliente() {
+  const id = document.getElementById('btn-eliminar').getAttribute('data-id');
+  const c = DB.find(x => String(x.id) === String(id));
+  if (!c) return;
+  if (!confirm('¿Eliminar a "' + c.nombre + '" permanentemente? Esta acción no se puede deshacer.')) return;
+  setSyncState('syncing');
+  await apiPost('deleteCliente', { id });
+  DB = DB.filter(x => String(x.id) !== String(id));
+  setSyncState('ok');
+  goTo('clientes', document.querySelector('[onclick*=clientes]'));
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+
+
+// ── FINANZAS ────────────────────────────────────────────────────────────────
+let EGRESOS = [];
+let EQUIPO = [];
+let monedaBalance = 'S/';
+
+
+
+function setMonedaBalance(mon) {
+  monedaBalance = mon;
+  ['S/','USD','COP'].forEach(m => {
+    const btn = document.getElementById('moneda-btn-' + m);
+    if (btn) {
+      btn.style.borderColor = m === mon ? 'var(--vino)' : '';
+      btn.style.color = m === mon ? 'var(--vino)' : '';
+      btn.style.fontWeight = m === mon ? '600' : '';
+    }
+  });
+  renderFinanzas();
+}
+
+function abrirNuevoEgreso() {
+  document.getElementById('eg-fecha').value = today();
+  document.getElementById('eg-tipo').value = 'Sueldo';
+  document.getElementById('eg-destinatario').value = '';
+  document.getElementById('eg-monto').value = '';
+  document.getElementById('eg-moneda').value = 'S/';
+  document.getElementById('eg-motivo').value = '';
+  // Populate miembros select
+  const sel = document.getElementById('eg-miembro');
+  sel.innerHTML = '<option value="">— Ninguno —</option>' + EQUIPO.filter(m=>m.estado==='Activo').map(m => '<option value="' + m.id + '">' + m.nombre + '</option>').join('');
+  document.getElementById('modal-egreso-title').textContent = 'Registrar egreso';
+  openModal('modal-egreso');
+}
+
+async function guardarEgreso() {
+  const monto = parseFloat(document.getElementById('eg-monto').value) || 0;
+  if (!monto) { alert('El monto es obligatorio'); return; }
+  const miembroId = document.getElementById('eg-miembro').value;
+  const miembro = EQUIPO.find(m => m.id === miembroId);
+  EGRESOS.push({
+    id: uid(),
+    fecha: document.getElementById('eg-fecha').value || today(),
+    tipo: document.getElementById('eg-tipo').value,
+    destinatario: document.getElementById('eg-destinatario').value || (miembro?.nombre || ''),
+    miembroId: miembroId || '',
+    monto,
+    moneda: document.getElementById('eg-moneda').value,
+    motivo: document.getElementById('eg-motivo').value
+  });
+  setSyncState('syncing');
+  await apiPost('saveEgreso', { data: EGRESOS[EGRESOS.length-1] });
+  setSyncState('ok');
+  closeModal('modal-egreso');
+  renderFinanzas();
+}
+
+async function eliminarEgreso(id) {
+  if (!confirm('¿Eliminar este egreso?')) return;
+  EGRESOS = EGRESOS.filter(e => e.id !== id);
+  setSyncState('syncing');
+  await apiPost('deleteEgreso', { id });
+  setSyncState('ok');
+  renderFinanzas();
+}
+
+function abrirNuevoMiembro() {
+  ['mb-nombre','mb-rol','mb-monto'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('mb-tipo').value = 'fijo';
+  document.getElementById('mb-moneda').value = 'S/';
+  document.getElementById('mb-estado').value = 'Activo';
+  openModal('modal-miembro');
+}
+
+async function guardarMiembro() {
+  const nombre = document.getElementById('mb-nombre').value.trim();
+  if (!nombre) { alert('El nombre es obligatorio'); return; }
+  EQUIPO.push({
+    id: uid(),
+    nombre,
+    rol: document.getElementById('mb-rol').value,
+    tipo: document.getElementById('mb-tipo').value,
+    monto: parseFloat(document.getElementById('mb-monto').value) || 0,
+    moneda: document.getElementById('mb-moneda').value,
+    estado: document.getElementById('mb-estado').value
+  });
+  setSyncState('syncing');
+  await apiPost('saveMiembro', { data: EQUIPO[EQUIPO.length-1] });
+  setSyncState('ok');
+  closeModal('modal-miembro');
+  renderFinanzas();
+}
+
+async function eliminarMiembro(id) {
+  if (!confirm('¿Eliminar este miembro del equipo?')) return;
+  EQUIPO = EQUIPO.filter(m => m.id !== id);
+  setSyncState('syncing');
+  await apiPost('deleteMiembro', { id });
+  setSyncState('ok');
+  renderFinanzas();
+}
+
+function renderFinanzas() {
+  const mon = monedaBalance;
+  const filterTipo = document.getElementById('filter-egreso-tipo')?.value || '';
+  const filterMon = document.getElementById('filter-egreso-moneda')?.value || '';
+
+  // ── BALANCE ────────────────────────────────────────────────────────────────
+  const ingresos = DB.flatMap(c => (c.ciclos||[]).flatMap(ci =>
+    (ci.pagos||[]).filter(p => p.estado==='Pagado' && c.moneda===mon)
+    .map(p => parseFloat(p.monto)||0)
+  )).reduce((a,b)=>a+b,0);
+
+  const egresos_mon = EGRESOS.filter(e => e.moneda===mon)
+    .reduce((a,e) => a + (parseFloat(e.monto)||0), 0);
+
+  const caja = ingresos - egresos_mon;
+  const porCobrar = DB.flatMap(c => (c.ciclos||[]).flatMap(ci =>
+    (ci.pagos||[]).filter(p => p.estado==='Pendiente' && c.moneda===mon)
+    .map(p => parseFloat(p.monto)||0)
+  )).reduce((a,b)=>a+b,0);
+
+  const sym = mon === 'S/' ? 'S/' : mon === 'USD' ? 'USD' : 'COP';
+
+  const metricsEl = document.getElementById('balance-metrics');
+  if (metricsEl) metricsEl.innerHTML = `
+    <div class="metric metric-accent" style="border-top-color:#28a745">
+      <div class="metric-label">Total ingresos ${sym}</div>
+      <div class="metric-val" style="color:#155724;font-size:20px">${sym} ${ingresos.toLocaleString()}</div>
+      <div class="metric-sub">pagos cobrados</div>
+    </div>
+    <div class="metric metric-accent" style="border-top-color:#dc3545">
+      <div class="metric-label">Total egresos ${sym}</div>
+      <div class="metric-val" style="color:#721c24;font-size:20px">${sym} ${egresos_mon.toLocaleString()}</div>
+      <div class="metric-sub">salidas registradas</div>
+    </div>
+    <div class="metric metric-accent" style="border-top-color:${caja>=0?'var(--vino)':'#dc3545'}">
+      <div class="metric-label">💰 Caja neta ${sym}</div>
+      <div class="metric-val" style="color:${caja>=0?'var(--vino)':'#dc3545'};font-size:20px">${sym} ${caja.toLocaleString()}</div>
+      <div class="metric-sub">ingresos − egresos</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Por cobrar ${sym}</div>
+      <div class="metric-val" style="color:#856404;font-size:20px">${sym} ${porCobrar.toLocaleString()}</div>
+      <div class="metric-sub">pagos pendientes</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Caja proyectada ${sym}</div>
+      <div class="metric-val" style="font-size:20px">${sym} ${(caja+porCobrar).toLocaleString()}</div>
+      <div class="metric-sub">caja + por cobrar</div>
+    </div>
+  `;
+
+  // ── LISTA EGRESOS ─────────────────────────────────────────────────────────
+  const tipoColors = {'Sueldo':'badge-blue','Gasto operativo':'badge-lilac','Retiro personal':'badge-vino','Otro':'badge-gray'};
+  const egresosEl = document.getElementById('egresos-list');
+  const egFiltered = EGRESOS
+    .filter(e => (!filterTipo||e.tipo===filterTipo) && (!filterMon||e.moneda===filterMon))
+    .sort((a,b) => b.fecha.localeCompare(a.fecha));
+
+  if (egresosEl) egresosEl.innerHTML = egFiltered.length === 0
+    ? '<div class="empty-state"><i class="ti ti-minus-circle"></i><p>Sin egresos registrados</p></div>'
+    : egFiltered.map(e => `
+      <div class="pago-row">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+            <span class="badge ${tipoColors[e.tipo]||'badge-gray'}" style="font-size:10px">${e.tipo}</span>
+            <strong style="font-size:13px">${e.destinatario||'—'}</strong>
+          </div>
+          <div style="font-size:11px;color:var(--text3)">${fmtDate(e.fecha)}${e.motivo?' · '+e.motivo:''}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-weight:700;font-size:14px;color:#721c24">− ${e.moneda} ${parseFloat(e.monto).toLocaleString()}</div>
+          <button class="btn btn-sm btn-icon btn-danger" style="margin-top:4px" onclick="eliminarEgreso('${e.id}')"><i class="ti ti-trash"></i></button>
+        </div>
+      </div>`).join('');
+
+  // ── EQUIPO ────────────────────────────────────────────────────────────────
+  const equipoEl = document.getElementById('equipo-list');
+  if (equipoEl) equipoEl.innerHTML = EQUIPO.length === 0
+    ? '<div class="empty-state"><i class="ti ti-users"></i><p>Sin miembros registrados</p></div>'
+    : EQUIPO.map(m => {
+        const totalPagado = EGRESOS.filter(e=>e.miembroId===m.id).reduce((a,e)=>a+(parseFloat(e.monto)||0),0);
+        return `
+        <div class="pago-row">
+          <div style="display:flex;align-items:center;gap:10px;flex:1">
+            <div class="avatar" style="width:34px;height:34px;font-size:12px">${initials(m.nombre)}</div>
+            <div>
+              <div style="font-weight:600;font-size:13px">${m.nombre}</div>
+              <div style="font-size:11px;color:var(--text3)">${m.rol||'Sin rol'} · ${m.tipo==='fijo'?m.moneda+' '+parseFloat(m.monto).toLocaleString()+'/mes':'Variable'}</div>
+              <span class="badge ${m.estado==='Activo'?'badge-ok':'badge-gray'}" style="font-size:10px;margin-top:3px">${m.estado}</span>
+            </div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:11px;color:var(--text3)">Total pagado</div>
+            <div style="font-weight:600;font-size:13px">${m.moneda} ${totalPagado.toLocaleString()}</div>
+            <button class="btn btn-sm btn-icon btn-danger" style="margin-top:4px" onclick="eliminarMiembro('${m.id}')"><i class="ti ti-trash"></i></button>
+          </div>
+        </div>`;
+      }).join('');
+}
+
+// ── PROSPECTOS ──────────────────────────────────────────────────────────────
+let PROSPECTOS = [];
+let editingProspectoId = null;
+
+
+
+function abrirNuevoProspecto() {
+  editingProspectoId = null;
+  ['pr-nombre','pr-nicho','pr-telefono','pr-pais','pr-ig','pr-enlace','pr-comentario','pr-zoom','pr-fecha-reunion'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  const hrEl=document.getElementById('pr-hora-reunion'); if(hrEl) hrEl.value='10:00';
+  document.getElementById('pr-estado').value = 'Pendiente';
+  document.getElementById('modal-prospecto-title').textContent = 'Nuevo prospecto';
+  openModal('modal-prospecto');
+}
+
+async function guardarProspecto() {
+  const nombre = document.getElementById('pr-nombre').value.trim();
+  if (!nombre) { alert('El nombre es obligatorio'); return; }
+  const estado = document.getElementById('pr-estado').value;
+  const fechaReunion = document.getElementById('pr-fecha-reunion').value;
+  const horaReunion = document.getElementById('pr-hora-reunion').value;
+  const zoom = document.getElementById('pr-zoom').value;
+  const data = {
+    id: editingProspectoId || uid(),
+    nombre,
+    nicho: document.getElementById('pr-nicho').value,
+    telefono: document.getElementById('pr-telefono').value,
+    pais: document.getElementById('pr-pais').value,
+    ig: document.getElementById('pr-ig').value,
+    enlace: document.getElementById('pr-enlace').value,
+    estado,
+    fechaReunion,
+    horaReunion,
+    zoom,
+    comentario: document.getElementById('pr-comentario').value,
+    fecha: editingProspectoId ? (PROSPECTOS.find(p=>p.id===editingProspectoId)?.fecha||today()) : today()
+  };
+  if (editingProspectoId) {
+    const idx = PROSPECTOS.findIndex(p => p.id === editingProspectoId);
+    if (idx >= 0) PROSPECTOS[idx] = data; else PROSPECTOS.push(data);
+  } else {
+    PROSPECTOS.push(data);
   }
-}
-function getEgresos() {
-  const rows = sheetToObjects('egresos');
-  return { ok: true, data: rows.map(r => ({
-    id: r.id, fecha: r.fecha, tipo: r.tipo, destinatario: r.destinatario,
-    miembroId: r.miembroId, monto: parseFloat(r.monto)||0,
-    moneda: r.moneda, motivo: r.motivo
-  }))};
+  setSyncState('syncing');
+  await apiPost('saveProspecto', { data });
+  setSyncState('ok');
+  closeModal('modal-prospecto');
+  editingProspectoId = null;
+  renderProspectos();
 }
 
-function saveEgreso(data) {
-  const sheet = getSheet('egresos');
-  if (!data.id) data.id = uid();
-  const isNew = findRowById('egresos', data.id) < 0;
-  const row = [
-    data.id, data.fecha||'', data.tipo||'', data.destinatario||'',
-    data.miembroId||'', data.monto||0, data.moneda||'S/', data.motivo||''
-  ];
-  if (isNew) { sheet.appendRow(row); }
-  else { const r = findRowById('egresos', data.id); if (r > 0) sheet.getRange(r, 1, 1, row.length).setValues([row]); }
-  return { ok: true, id: data.id };
+function editarProspecto(id) {
+  const p = PROSPECTOS.find(x => x.id === id); if (!p) return;
+  editingProspectoId = id;
+  document.getElementById('pr-nombre').value = p.nombre||'';
+  document.getElementById('pr-nicho').value = p.nicho||'';
+  document.getElementById('pr-telefono').value = p.telefono||'';
+  document.getElementById('pr-pais').value = p.pais||'';
+  document.getElementById('pr-ig').value = p.ig||'';
+  document.getElementById('pr-enlace').value = p.enlace||'';
+  document.getElementById('pr-estado').value = p.estado||'Pendiente';
+  document.getElementById('pr-fecha-reunion').value = p.fechaReunion||'';
+  document.getElementById('pr-hora-reunion').value = p.horaReunion||'10:00';
+  document.getElementById('pr-zoom').value = p.zoom||'';
+  document.getElementById('pr-comentario').value = p.comentario||'';
+  document.getElementById('modal-prospecto-title').textContent = 'Editar prospecto';
+  openModal('modal-prospecto');
 }
 
-// ── EQUIPO ────────────────────────────────────────────────────────────────────
-function getEquipo() {
-  const rows = sheetToObjects('equipo');
-  return { ok: true, data: rows.map(r => ({
-    id: r.id, nombre: r.nombre, rol: r.rol, tipo: r.tipo,
-    monto: parseFloat(r.monto)||0, moneda: r.moneda, estado: r.estado
-  }))};
+async function eliminarProspecto(id) {
+  const p = PROSPECTOS.find(x => x.id === id);
+  if (!confirm('¿Eliminar a "' + (p?.nombre||'') + '"?')) return;
+  PROSPECTOS = PROSPECTOS.filter(x => x.id !== id);
+  setSyncState('syncing');
+  await apiPost('deleteProspecto', { id });
+  setSyncState('ok');
+  renderProspectos();
 }
 
-function saveMiembro(data) {
-  const sheet = getSheet('equipo');
-  if (!data.id) data.id = uid();
-  const isNew = findRowById('equipo', data.id) < 0;
-  const row = [data.id, data.nombre, data.rol||'', data.tipo||'fijo', data.monto||0, data.moneda||'S/', data.estado||'Activo'];
-  if (isNew) { sheet.appendRow(row); }
-  else { const r = findRowById('equipo', data.id); if (r > 0) sheet.getRange(r, 1, 1, row.length).setValues([row]); }
-  return { ok: true, id: data.id };
+function estadoProspectoBadge(e) {
+  const m = {'Pendiente':'badge-gray','Agendado':'badge-blue','Se mostró propuesta':'badge-lilac','Se cerró':'badge-ok','No se cerró':'badge-danger','Seguimiento':'badge-warn'};
+  return '<span class="badge ' + (m[e]||'badge-gray') + '">' + e + '</span>';
 }
+
+function renderProspectos() {
+  const q = (document.getElementById('search-prospectos')?.value||'').toLowerCase();
+  const fe = document.getElementById('filter-estado-prospecto')?.value||'';
+  const rows = PROSPECTOS.filter(p => (!q||(p.nombre||'').toLowerCase().includes(q)||(p.nicho||'').toLowerCase().includes(q))&&(!fe||p.estado===fe));
+
+  const total = PROSPECTOS.length;
+  const cerrados = PROSPECTOS.filter(p=>p.estado==='Se cerró').length;
+  const propuestas = PROSPECTOS.filter(p=>p.estado==='Se mostró propuesta'||p.estado==='Se cerró').length;
+  const seguimiento = PROSPECTOS.filter(p=>p.estado==='Seguimiento').length;
+  const pct = total > 0 ? Math.round(cerrados/total*100) : 0;
+
+  const statsEl = document.getElementById('prospectos-stats');
+  if (statsEl) statsEl.innerHTML = `
+    <div class="metric"><div class="metric-label">Total prospectos</div><div class="metric-val">${total}</div></div>
+    <div class="metric"><div class="metric-label">Propuestas mostradas</div><div class="metric-val">${propuestas}</div></div>
+    <div class="metric"><div class="metric-label">Cerrados</div><div class="metric-val" style="color:#155724">${cerrados}</div></div>
+    <div class="metric metric-accent"><div class="metric-label">% Conversión</div><div class="metric-val" style="color:var(--vino)">${pct}%</div><div class="metric-sub">cerrados / total</div></div>
+    <div class="metric"><div class="metric-label">En seguimiento</div><div class="metric-val" style="color:#856404">${seguimiento}</div></div>
+  `;
+
+  const tbody = document.getElementById('prospectos-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = rows.length === 0
+    ? '<tr><td colspan="8"><div class="empty-state"><i class="ti ti-target"></i><p>Sin prospectos registrados aún</p></div></td></tr>'
+    : rows.map(p => '<tr>' +
+        '<td><strong>' + p.nombre + '</strong><br><span style="font-size:11px;color:var(--text3)">' + fmtDate(p.fecha) + '</span></td>' +
+        '<td>' + (p.nicho||'—') + '</td>' +
+        '<td>' + (p.telefono||'—') + '</td>' +
+        '<td>' + (p.pais||'—') + '</td>' +
+        '<td>' + (p.ig ? '<a href="' + (p.ig.startsWith('http')?p.ig:'https://instagram.com/'+p.ig.replace('@','')) + '" target="_blank" style="color:var(--vino)">' + p.ig + '</a>' : '—') + '</td>' +
+        '<td>' + (p.fechaReunion ? '<div style="font-size:12px;font-weight:500">' + fmtDate(p.fechaReunion) + '</div>' + (p.horaReunion?'<div style="font-size:11px;color:var(--text3)">' + p.horaReunion + '</div>':'') + (p.zoom?'<a href="'+p.zoom+'" target="_blank" style="font-size:11px;color:var(--vino);display:flex;align-items:center;gap:2px"><i class="ti ti-video"></i> Zoom</a>':'') : '—') + '</td>' +
+        '<td>' + estadoProspectoBadge(p.estado) + '</td>' +
+        '<td style="max-width:180px;font-size:12px;color:var(--text2)">' + (p.comentario||'—') + '</td>' +
+        '<td><div style="display:flex;gap:4px">' +
+          (p.enlace ? '<a href="' + p.enlace + '" target="_blank" class="btn btn-sm btn-icon" title="Ver enlace"><i class="ti ti-external-link"></i></a>' : '') +
+          '<button class="btn btn-sm btn-icon" onclick="editarProspecto(\'' + p.id + '\')" title="Editar"><i class="ti ti-edit"></i></button>' +
+          '<button class="btn btn-sm btn-icon btn-danger" onclick="eliminarProspecto(\'' + p.id + '\')" title="Eliminar"><i class="ti ti-trash"></i></button>' +
+        '</div></td></tr>'
+      ).join('');
+}
+
+document.getElementById('today-label').textContent = new Date().toLocaleDateString('es-PE', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+toggleModalidad();
+recargar();
+
+// PWA install
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
