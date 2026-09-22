@@ -329,6 +329,8 @@ button{cursor:pointer;font-family:var(--font)}
       <input class="search-bar" placeholder="Buscar..." id="search-prospectos" oninput="renderProspectos()" style="width:180px">
       <select class="search-bar" id="filter-estado-prospecto" onchange="renderProspectos()" style="width:auto">
         <option value="">Todos los estados</option>
+        <option>Pendiente</option>
+        <option>Pendiente</option>
         <option>Agendado</option>
         <option>Se mostró propuesta</option>
         <option>Se cerró</option>
@@ -338,7 +340,7 @@ button{cursor:pointer;font-family:var(--font)}
     </div>
     <div class="table-wrap">
       <table class="tbl"><thead><tr>
-        <th>Cliente / Empresa</th><th>Nicho</th><th>Teléfono</th><th>País</th><th>Instagram / Web</th><th>Estado</th><th>Comentario</th><th></th>
+        <th>Cliente / Empresa</th><th>Nicho</th><th>Teléfono</th><th>País</th><th>Instagram / Web</th><th>Reunión</th><th>Estado</th><th>Comentario</th><th></th>
       </tr></thead><tbody id="prospectos-tbody"></tbody></table>
     </div>
   </div>
@@ -495,6 +497,8 @@ button{cursor:pointer;font-family:var(--font)}
     </div>
     <div class="form-group" style="margin-bottom:10px"><label>Estado</label>
       <select id="pr-estado">
+        <option>Pendiente</option>
+        <option>Pendiente</option>
         <option>Agendado</option>
         <option>Se mostró propuesta</option>
         <option>Se cerró</option>
@@ -1321,8 +1325,9 @@ let editingProspectoId = null;
 
 function abrirNuevoProspecto() {
   editingProspectoId = null;
-  ['pr-nombre','pr-nicho','pr-telefono','pr-pais','pr-ig','pr-enlace','pr-comentario'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
-  document.getElementById('pr-estado').value = 'Agendado';
+  ['pr-nombre','pr-nicho','pr-telefono','pr-pais','pr-ig','pr-enlace','pr-comentario','pr-zoom','pr-fecha-reunion'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  const hrEl=document.getElementById('pr-hora-reunion'); if(hrEl) hrEl.value='10:00';
+  document.getElementById('pr-estado').value = 'Pendiente';
   document.getElementById('modal-prospecto-title').textContent = 'Nuevo prospecto';
   openModal('modal-prospecto');
 }
@@ -1330,6 +1335,10 @@ function abrirNuevoProspecto() {
 async function guardarProspecto() {
   const nombre = document.getElementById('pr-nombre').value.trim();
   if (!nombre) { alert('El nombre es obligatorio'); return; }
+  const estado = document.getElementById('pr-estado').value;
+  const fechaReunion = document.getElementById('pr-fecha-reunion').value;
+  const horaReunion = document.getElementById('pr-hora-reunion').value;
+  const zoom = document.getElementById('pr-zoom').value;
   const data = {
     id: editingProspectoId || uid(),
     nombre,
@@ -1338,7 +1347,10 @@ async function guardarProspecto() {
     pais: document.getElementById('pr-pais').value,
     ig: document.getElementById('pr-ig').value,
     enlace: document.getElementById('pr-enlace').value,
-    estado: document.getElementById('pr-estado').value,
+    estado,
+    fechaReunion,
+    horaReunion,
+    zoom,
     comentario: document.getElementById('pr-comentario').value,
     fecha: editingProspectoId ? (PROSPECTOS.find(p=>p.id===editingProspectoId)?.fecha||today()) : today()
   };
@@ -1365,7 +1377,10 @@ function editarProspecto(id) {
   document.getElementById('pr-pais').value = p.pais||'';
   document.getElementById('pr-ig').value = p.ig||'';
   document.getElementById('pr-enlace').value = p.enlace||'';
-  document.getElementById('pr-estado').value = p.estado||'Agendado';
+  document.getElementById('pr-estado').value = p.estado||'Pendiente';
+  document.getElementById('pr-fecha-reunion').value = p.fechaReunion||'';
+  document.getElementById('pr-hora-reunion').value = p.horaReunion||'10:00';
+  document.getElementById('pr-zoom').value = p.zoom||'';
   document.getElementById('pr-comentario').value = p.comentario||'';
   document.getElementById('modal-prospecto-title').textContent = 'Editar prospecto';
   openModal('modal-prospecto');
@@ -1382,7 +1397,7 @@ async function eliminarProspecto(id) {
 }
 
 function estadoProspectoBadge(e) {
-  const m = {'Agendado':'badge-blue','Se mostró propuesta':'badge-lilac','Se cerró':'badge-ok','No se cerró':'badge-danger','Seguimiento':'badge-warn'};
+  const m = {'Pendiente':'badge-gray','Agendado':'badge-blue','Se mostró propuesta':'badge-lilac','Se cerró':'badge-ok','No se cerró':'badge-danger','Seguimiento':'badge-warn'};
   return '<span class="badge ' + (m[e]||'badge-gray') + '">' + e + '</span>';
 }
 
@@ -1416,6 +1431,7 @@ function renderProspectos() {
         '<td>' + (p.telefono||'—') + '</td>' +
         '<td>' + (p.pais||'—') + '</td>' +
         '<td>' + (p.ig ? '<a href="' + (p.ig.startsWith('http')?p.ig:'https://instagram.com/'+p.ig.replace('@','')) + '" target="_blank" style="color:var(--vino)">' + p.ig + '</a>' : '—') + '</td>' +
+        '<td>' + (p.fechaReunion ? '<div style="font-size:12px;font-weight:500">' + fmtDate(p.fechaReunion) + '</div>' + (p.horaReunion?'<div style="font-size:11px;color:var(--text3)">' + p.horaReunion + '</div>':'') + (p.zoom?'<a href="'+p.zoom+'" target="_blank" style="font-size:11px;color:var(--vino);display:flex;align-items:center;gap:2px"><i class="ti ti-video"></i> Zoom</a>':'') : '—') + '</td>' +
         '<td>' + estadoProspectoBadge(p.estado) + '</td>' +
         '<td style="max-width:180px;font-size:12px;color:var(--text2)">' + (p.comentario||'—') + '</td>' +
         '<td><div style="display:flex;gap:4px">' +
