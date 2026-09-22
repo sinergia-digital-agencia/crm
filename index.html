@@ -209,6 +209,8 @@ button{cursor:pointer;font-family:var(--font)}
   <button class="nav-btn" onclick="goTo('clientes',this)"><i class="ti ti-users"></i>Clientes</button>
   <button class="nav-btn" onclick="goTo('pagos',this)"><i class="ti ti-credit-card"></i>Pagos</button>
   <button class="nav-btn" onclick="goTo('alertas',this)"><i class="ti ti-bell"></i>Alertas <span class="alert-chip" id="alert-badge" style="display:none">0</span></button>
+  <button class="nav-btn" onclick="goTo('prospectos',this)"><i class="ti ti-target"></i>Prospectos</button>
+  <button class="nav-btn" onclick="goTo('finanzas',this)"><i class="ti ti-wallet"></i>Finanzas</button>
   <button class="nav-btn" onclick="goTo('nuevo',this)"><i class="ti ti-plus"></i>Nuevo cliente</button>
 </nav>
 
@@ -264,6 +266,83 @@ button{cursor:pointer;font-family:var(--font)}
     <div id="alertas-list"></div>
   </div>
 
+  <!-- FINANZAS -->
+  <div class="view" id="view-finanzas">
+    <div class="page-header">
+      <h2>Finanzas — Caja Sinergia Digital</h2>
+      <div class="btn-group">
+        <button class="btn btn-sm" onclick="abrirNuevoEgreso()"><i class="ti ti-minus"></i>Registrar egreso</button>
+        <button class="btn btn-sm" onclick="abrirNuevoMiembro()"><i class="ti ti-user-plus"></i>Agregar al equipo</button>
+      </div>
+    </div>
+
+    <!-- Selector de moneda para el balance -->
+    <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center">
+      <span style="font-size:13px;color:var(--text2);font-weight:500">Ver balance en:</span>
+      <button class="btn btn-sm" id="moneda-btn-S/" onclick="setMonedaBalance('S/')" style="border-color:var(--vino);color:var(--vino)">S/ Soles</button>
+      <button class="btn btn-sm" id="moneda-btn-USD" onclick="setMonedaBalance('USD')">USD</button>
+      <button class="btn btn-sm" id="moneda-btn-COP" onclick="setMonedaBalance('COP')">COP</button>
+    </div>
+
+    <!-- Balance cards -->
+    <div class="metrics" id="balance-metrics" style="margin-bottom:20px"></div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+
+      <!-- EGRESOS -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div class="section-title" style="margin:0;border:none;padding:0">Egresos registrados</div>
+          <div style="display:flex;gap:6px">
+            <select class="search-bar" id="filter-egreso-tipo" onchange="renderFinanzas()" style="width:auto;font-size:12px">
+              <option value="">Todos</option>
+              <option>Sueldo</option>
+              <option>Gasto operativo</option>
+              <option>Retiro personal</option>
+              <option>Otro</option>
+            </select>
+            <select class="search-bar" id="filter-egreso-moneda" onchange="renderFinanzas()" style="width:auto;font-size:12px">
+              <option value="">Todas las monedas</option>
+              <option>S/</option><option>USD</option><option>COP</option>
+            </select>
+          </div>
+        </div>
+        <div id="egresos-list"></div>
+      </div>
+
+      <!-- EQUIPO -->
+      <div class="card">
+        <div class="section-title">Equipo Sinergia Digital</div>
+        <div id="equipo-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROSPECTOS -->
+  <div class="view" id="view-prospectos">
+    <div class="page-header">
+      <h2>Prospectos <span id="pct-badge" class="badge badge-vino" style="font-size:13px;margin-left:8px"></span></h2>
+      <button class="btn btn-primary btn-sm" onclick="abrirNuevoProspecto()"><i class="ti ti-plus"></i>Agregar prospecto</button>
+    </div>
+    <div class="metrics" id="prospectos-stats" style="margin-bottom:16px"></div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <input class="search-bar" placeholder="Buscar..." id="search-prospectos" oninput="renderProspectos()" style="width:180px">
+      <select class="search-bar" id="filter-estado-prospecto" onchange="renderProspectos()" style="width:auto">
+        <option value="">Todos los estados</option>
+        <option>Nos reunimos</option>
+        <option>Se mostró propuesta</option>
+        <option>Se cerró</option>
+        <option>No se cerró</option>
+        <option>Seguimiento</option>
+      </select>
+    </div>
+    <div class="table-wrap">
+      <table class="tbl"><thead><tr>
+        <th>Cliente / Empresa</th><th>Nicho</th><th>Teléfono</th><th>País</th><th>Instagram / Web</th><th>Estado</th><th>Comentario</th><th></th>
+      </tr></thead><tbody id="prospectos-tbody"></tbody></table>
+    </div>
+  </div>
+
   <!-- NUEVO / EDITAR CLIENTE -->
   <div class="view" id="view-nuevo">
     <div class="page-header"><h2 id="form-title">Nuevo cliente</h2></div>
@@ -285,7 +364,7 @@ button{cursor:pointer;font-family:var(--font)}
       </div>
       <div class="form-row form-row-3">
         <div class="form-group"><label>Monto mensual</label><input id="f-monto" type="number" placeholder="800" oninput="updateEstructura()"></div>
-        <div class="form-group"><label>Moneda</label><select id="f-moneda" onchange="updateEstructura()"><option>USD</option><option>S/</option></select></div>
+        <div class="form-group"><label>Moneda</label><select id="f-moneda" onchange="updateEstructura()"><option>USD</option><option>S/</option><option>COP</option></select></div>
         <div class="form-group"><label>Inicio del contrato</label><input id="f-inicio" type="date"></div>
       </div>
       <div class="section-title" style="margin-top:16px">Pagos</div>
@@ -311,6 +390,7 @@ button{cursor:pointer;font-family:var(--font)}
     <div class="page-header">
       <button class="btn btn-sm" onclick="goTo('clientes',document.querySelector('[onclick*=clientes]'))"><i class="ti ti-arrow-left"></i>Volver</button>
       <div class="btn-group">
+        <button class="btn btn-sm btn-danger" id="btn-eliminar" onclick="eliminarCliente()"><i class="ti ti-trash"></i>Eliminar</button>
         <button class="btn btn-sm" id="btn-editar" onclick="editarCliente()"><i class="ti ti-edit"></i>Editar</button>
         <button class="btn btn-sm btn-primary" id="btn-renovar" onclick="renovarCliente()"><i class="ti ti-refresh"></i>Renovar</button>
       </div>
@@ -319,6 +399,118 @@ button{cursor:pointer;font-family:var(--font)}
   </div>
 
 </div><!-- /content -->
+
+<!-- MODAL: egreso -->
+<div class="overlay" id="modal-egreso">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-egreso-title">Registrar egreso</span>
+      <button class="btn btn-icon btn-sm" onclick="closeModal('modal-egreso')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Fecha</label><input id="eg-fecha" type="date"></div>
+      <div class="form-group"><label>Tipo</label>
+        <select id="eg-tipo">
+          <option>Sueldo</option>
+          <option>Gasto operativo</option>
+          <option>Retiro personal</option>
+          <option>Otro</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Destinatario / Concepto</label>
+        <input id="eg-destinatario" placeholder="Ej: Ale — sueldo julio, Canva anual...">
+      </div>
+      <div class="form-group"><label>Miembro del equipo (opcional)</label>
+        <select id="eg-miembro"><option value="">— Ninguno —</option></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Monto</label><input id="eg-monto" type="number" placeholder="0"></div>
+      <div class="form-group"><label>Moneda</label>
+        <select id="eg-moneda"><option>S/</option><option>USD</option><option>COP</option></select>
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:18px"><label>Motivo / Notas</label>
+      <textarea id="eg-motivo" rows="2" placeholder="Descripción del egreso..."></textarea>
+    </div>
+    <div class="btn-group" style="justify-content:flex-end">
+      <button class="btn btn-sm" onclick="closeModal('modal-egreso')">Cancelar</button>
+      <button class="btn btn-primary btn-sm" onclick="guardarEgreso()"><i class="ti ti-device-floppy"></i>Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: miembro equipo -->
+<div class="overlay" id="modal-miembro">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Agregar miembro del equipo</span>
+      <button class="btn btn-icon btn-sm" onclick="closeModal('modal-miembro')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Nombre</label><input id="mb-nombre" placeholder="Ej: Alejandra Hurtado"></div>
+      <div class="form-group"><label>Rol</label><input id="mb-rol" placeholder="Ej: Directora creativa, Editor..."></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Tipo de pago</label>
+        <select id="mb-tipo"><option value="fijo">Fijo mensual</option><option value="variable">Variable</option></select>
+      </div>
+      <div class="form-group"><label>Monto fijo (si aplica)</label><input id="mb-monto" type="number" placeholder="0"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Moneda</label>
+        <select id="mb-moneda"><option>S/</option><option>USD</option><option>COP</option></select>
+      </div>
+      <div class="form-group"><label>Estado</label>
+        <select id="mb-estado"><option>Activo</option><option>Inactivo</option></select>
+      </div>
+    </div>
+    <div class="btn-group" style="justify-content:flex-end;margin-top:8px">
+      <button class="btn btn-sm" onclick="closeModal('modal-miembro')">Cancelar</button>
+      <button class="btn btn-primary btn-sm" onclick="guardarMiembro()"><i class="ti ti-device-floppy"></i>Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: prospecto -->
+<div class="overlay" id="modal-prospecto">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-prospecto-title">Nuevo prospecto</span>
+      <button class="btn btn-icon btn-sm" onclick="closeModal('modal-prospecto')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Nombre / Empresa</label><input id="pr-nombre" placeholder="Ej: Clínica Bella"></div>
+      <div class="form-group"><label>Nicho</label><input id="pr-nicho" placeholder="Ej: Estética, Salud, Moda..."></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Número de teléfono</label><input id="pr-telefono" placeholder="+51 999 999 999"></div>
+      <div class="form-group"><label>País</label><input id="pr-pais" placeholder="Perú"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Instagram o Sitio Web</label><input id="pr-ig" placeholder="@usuario o www.sitio.com"></div>
+      <div class="form-group"><label>Enlace (propuesta / drive)</label><input id="pr-enlace" placeholder="https://..."></div>
+    </div>
+    <div class="form-group" style="margin-bottom:10px"><label>Estado</label>
+      <select id="pr-estado">
+        <option>Nos reunimos</option>
+        <option>Se mostró propuesta</option>
+        <option>Se cerró</option>
+        <option>No se cerró</option>
+        <option>Seguimiento</option>
+      </select>
+    </div>
+    <div class="form-group" style="margin-bottom:18px"><label>Comentario</label>
+      <textarea id="pr-comentario" rows="2" placeholder="Notas sobre la reunión, objeciones, próximos pasos..."></textarea>
+    </div>
+    <div class="btn-group" style="justify-content:flex-end">
+      <button class="btn btn-sm" onclick="closeModal('modal-prospecto')">Cancelar</button>
+      <button class="btn btn-primary btn-sm" onclick="guardarProspecto()"><i class="ti ti-device-floppy"></i>Guardar</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL: documento -->
 <div class="overlay" id="modal-doc">
@@ -390,24 +582,23 @@ async function apiPost(action, data = {}) {
 async function recargar() {
   setSyncState('syncing');
   try {
-    const r = await apiGet('getClientes');
-    if (r.ok) {
-      DB = r.data;
-      // DEBUG: log first client and its ciclos/pagos
-      if (DB.length > 0) {
-        const c = DB[0];
-        console.log('CLIENT ID:', c.id);
-        console.log('CICLOS:', JSON.stringify(c.ciclos));
-        console.log('PAGOS in ciclo 1:', c.ciclos[0]?.pagos);
-      }
-      setSyncState('ok');
-      renderDashboard();
-      renderAlertas();
-      if (document.getElementById('view-clientes').classList.contains('active')) renderClientes();
-      if (document.getElementById('view-pagos').classList.contains('active')) renderPagos();
-    } else {
-      setSyncState('error');
-    }
+    const [rC, rP, rE, rEq] = await Promise.all([
+      apiGet('getClientes'),
+      apiGet('getProspectos'),
+      apiGet('getEgresos'),
+      apiGet('getEquipo')
+    ]);
+    if (rC.ok) DB = rC.data;
+    if (rP.ok) PROSPECTOS = rP.data;
+    if (rE.ok) EGRESOS = rE.data;
+    if (rEq.ok) EQUIPO = rEq.data;
+    setSyncState('ok');
+    renderDashboard();
+    renderAlertas();
+    if (document.getElementById('view-clientes').classList.contains('active')) renderClientes();
+    if (document.getElementById('view-pagos').classList.contains('active')) renderPagos();
+    if (document.getElementById('view-prospectos').classList.contains('active')) renderProspectos();
+    if (document.getElementById('view-finanzas').classList.contains('active')) renderFinanzas();
   } catch (e) {
     setSyncState('error');
     console.error(e);
@@ -449,6 +640,8 @@ function goTo(view, btn) {
   if (view === 'clientes') renderClientes();
   if (view === 'pagos') renderPagos();
   if (view === 'alertas') renderAlertas();
+  if (view === 'prospectos') renderProspectos();
+  if (view === 'finanzas') renderFinanzas();
   if (view === 'nuevo') { editingId = null; resetForm(); }
   window.scrollTo(0, 0);
 }
@@ -460,24 +653,25 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 function renderDashboard() {
   const activos = DB.filter(c => c.estado === 'Activo');
   const allPagos = DB.flatMap(c => (c.ciclos || []).flatMap(ci => ci.pagos || []));
-  const cobrado = allPagos.filter(p => p.estado === 'Pagado').reduce((a, p) => a + (parseFloat(p.monto) || 0), 0);
   const pendientes = DB.flatMap(c => { const np = nextPago(c); return np ? [{ ...np, cliente: c.nombre, moneda: c.moneda, clienteId: c.id }] : []; });
   const venc30 = pendientes.filter(p => { const d = diffDays(p.fecha); return d !== null && d <= 30; });
   const totalDocs = DB.reduce((a, c) => a + (c.docs || []).length, 0);
+  const inactivos = DB.filter(c => c.estado !== 'Activo').length;
 
-  // Split cobrado by currency
-  const cobradoSoles = DB.flatMap(c => (c.ciclos||[]).flatMap(ci=>(ci.pagos||[]).filter(p=>p.estado==='Pagado'&&c.moneda==='S/').map(p=>parseFloat(p.monto)||0))).reduce((a,b)=>a+b,0);
-  const cobradoUSD = DB.flatMap(c => (c.ciclos||[]).flatMap(ci=>(ci.pagos||[]).filter(p=>p.estado==='Pagado'&&c.moneda==='USD').map(p=>parseFloat(p.monto)||0))).reduce((a,b)=>a+b,0);
-  const porCobrarSoles = DB.flatMap(c => (c.ciclos||[]).flatMap(ci=>(ci.pagos||[]).filter(p=>p.estado==='Pendiente'&&c.moneda==='S/').map(p=>parseFloat(p.monto)||0))).reduce((a,b)=>a+b,0);
-  const porCobrarUSD = DB.flatMap(c => (c.ciclos||[]).flatMap(ci=>(ci.pagos||[]).filter(p=>p.estado==='Pendiente'&&c.moneda==='USD').map(p=>parseFloat(p.monto)||0))).reduce((a,b)=>a+b,0);
+  const suma = (mon, pagado) => DB.flatMap(c => (c.ciclos||[]).flatMap(ci =>
+    (ci.pagos||[]).filter(p => (pagado ? p.estado==='Pagado' : p.estado==='Pendiente') && c.moneda===mon)
+    .map(p => parseFloat(p.monto)||0)
+  )).reduce((a,b)=>a+b,0);
+
+  const cS=suma('S/',true), cU=suma('USD',true), cC=suma('COP',true);
+  const pS=suma('S/',false), pU=suma('USD',false), pC=suma('COP',false);
 
   document.getElementById('metrics-row').innerHTML = `
-    <div class="metric metric-accent"><div class="metric-label">Clientes activos</div><div class="metric-val">${activos.length}</div><div class="metric-sub">de ${DB.length} en total</div></div>
-    <div class="metric"><div class="metric-label">Cobrado — Soles</div><div class="metric-val" style="font-size:20px">S/ ${cobradoSoles.toLocaleString()}</div><div class="metric-sub">${cobradoUSD > 0 ? `+ USD ${cobradoUSD.toLocaleString()}` : 'todos los ciclos'}</div></div>
-    <div class="metric"><div class="metric-label">Cobrado — USD</div><div class="metric-val" style="font-size:20px">$ ${cobradoUSD.toLocaleString()}</div><div class="metric-sub">todos los ciclos</div></div>
-    <div class="metric"><div class="metric-label">Por cobrar S/</div><div class="metric-val" style="font-size:20px;color:${porCobrarSoles>0?'#856404':'inherit'}">S/ ${porCobrarSoles.toLocaleString()}</div><div class="metric-sub">${porCobrarUSD > 0 ? `+ USD ${porCobrarUSD.toLocaleString()}` : 'pendiente'}</div></div>
-    <div class="metric"><div class="metric-label">Por cobrar USD</div><div class="metric-val" style="font-size:20px;color:${porCobrarUSD>0?'#856404':'inherit'}">$ ${porCobrarUSD.toLocaleString()}</div><div class="metric-sub">pendiente</div></div>
-    <div class="metric"><div class="metric-label">Vencen en 30d</div><div class="metric-val" style="color:${venc30.length > 0 ? '#856404' : 'inherit'}">${venc30.length}</div><div class="metric-sub">requieren atención</div></div>
+    <div class="metric metric-accent"><div class="metric-label">Clientes activos</div><div class="metric-val">${activos.length}</div><div class="metric-sub">${inactivos} inactivo${inactivos!==1?'s':''}</div></div>
+    <div class="metric"><div class="metric-label">Cobrado S/</div><div class="metric-val" style="font-size:18px">S/ ${cS.toLocaleString()}</div><div class="metric-sub" style="color:${pS>0?'#856404':'var(--text3)'}">Por cobrar: S/ ${pS.toLocaleString()}</div></div>
+    <div class="metric"><div class="metric-label">Cobrado USD</div><div class="metric-val" style="font-size:18px">$ ${cU.toLocaleString()}</div><div class="metric-sub" style="color:${pU>0?'#856404':'var(--text3)'}">Por cobrar: $ ${pU.toLocaleString()}</div></div>
+    <div class="metric"><div class="metric-label">Cobrado COP</div><div class="metric-val" style="font-size:18px">COP ${cC.toLocaleString()}</div><div class="metric-sub" style="color:${pC>0?'#856404':'var(--text3)'}">Por cobrar: COP ${pC.toLocaleString()}</div></div>
+    <div class="metric"><div class="metric-label">Vencen en 30d</div><div class="metric-val" style="color:${venc30.length>0?'#856404':'inherit'}">${venc30.length}</div><div class="metric-sub">requieren atención</div></div>
     <div class="metric"><div class="metric-label">Documentos</div><div class="metric-val">${totalDocs}</div><div class="metric-sub">archivados</div></div>
   `;
 
@@ -575,6 +769,7 @@ function verDetalle(id) {
   document.getElementById('view-detalle').classList.add('active');
   document.getElementById('btn-editar').setAttribute('data-id', id);
   document.getElementById('btn-renovar').setAttribute('data-id', id);
+  document.getElementById('btn-eliminar').setAttribute('data-id', id);
 
   const allPagos = (c.ciclos || []).flatMap(ci => ci.pagos || []);
   const cobrado = allPagos.filter(p => p.estado === 'Pagado').reduce((a, p) => a + (parseFloat(p.monto) || 0), 0);
@@ -905,7 +1100,335 @@ async function guardarCliente() {
 
 function cancelForm() { editingId ? verDetalle(editingId) : goTo('clientes', document.querySelector('[onclick*=clientes]')); }
 
+async function eliminarCliente() {
+  const id = document.getElementById('btn-eliminar').getAttribute('data-id');
+  const c = DB.find(x => String(x.id) === String(id));
+  if (!c) return;
+  if (!confirm('¿Eliminar a "' + c.nombre + '" permanentemente? Esta acción no se puede deshacer.')) return;
+  setSyncState('syncing');
+  await apiPost('deleteCliente', { id });
+  DB = DB.filter(x => String(x.id) !== String(id));
+  setSyncState('ok');
+  goTo('clientes', document.querySelector('[onclick*=clientes]'));
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────────
+
+
+// ── FINANZAS ────────────────────────────────────────────────────────────────
+let EGRESOS = [];
+let EQUIPO = [];
+let monedaBalance = 'S/';
+
+
+
+function setMonedaBalance(mon) {
+  monedaBalance = mon;
+  ['S/','USD','COP'].forEach(m => {
+    const btn = document.getElementById('moneda-btn-' + m);
+    if (btn) {
+      btn.style.borderColor = m === mon ? 'var(--vino)' : '';
+      btn.style.color = m === mon ? 'var(--vino)' : '';
+      btn.style.fontWeight = m === mon ? '600' : '';
+    }
+  });
+  renderFinanzas();
+}
+
+function abrirNuevoEgreso() {
+  document.getElementById('eg-fecha').value = today();
+  document.getElementById('eg-tipo').value = 'Sueldo';
+  document.getElementById('eg-destinatario').value = '';
+  document.getElementById('eg-monto').value = '';
+  document.getElementById('eg-moneda').value = 'S/';
+  document.getElementById('eg-motivo').value = '';
+  // Populate miembros select
+  const sel = document.getElementById('eg-miembro');
+  sel.innerHTML = '<option value="">— Ninguno —</option>' + EQUIPO.filter(m=>m.estado==='Activo').map(m => '<option value="' + m.id + '">' + m.nombre + '</option>').join('');
+  document.getElementById('modal-egreso-title').textContent = 'Registrar egreso';
+  openModal('modal-egreso');
+}
+
+async function guardarEgreso() {
+  const monto = parseFloat(document.getElementById('eg-monto').value) || 0;
+  if (!monto) { alert('El monto es obligatorio'); return; }
+  const miembroId = document.getElementById('eg-miembro').value;
+  const miembro = EQUIPO.find(m => m.id === miembroId);
+  EGRESOS.push({
+    id: uid(),
+    fecha: document.getElementById('eg-fecha').value || today(),
+    tipo: document.getElementById('eg-tipo').value,
+    destinatario: document.getElementById('eg-destinatario').value || (miembro?.nombre || ''),
+    miembroId: miembroId || '',
+    monto,
+    moneda: document.getElementById('eg-moneda').value,
+    motivo: document.getElementById('eg-motivo').value
+  });
+  setSyncState('syncing');
+  await apiPost('saveEgreso', { data: EGRESOS[EGRESOS.length-1] });
+  setSyncState('ok');
+  closeModal('modal-egreso');
+  renderFinanzas();
+}
+
+async function eliminarEgreso(id) {
+  if (!confirm('¿Eliminar este egreso?')) return;
+  EGRESOS = EGRESOS.filter(e => e.id !== id);
+  setSyncState('syncing');
+  await apiPost('deleteEgreso', { id });
+  setSyncState('ok');
+  renderFinanzas();
+}
+
+function abrirNuevoMiembro() {
+  ['mb-nombre','mb-rol','mb-monto'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('mb-tipo').value = 'fijo';
+  document.getElementById('mb-moneda').value = 'S/';
+  document.getElementById('mb-estado').value = 'Activo';
+  openModal('modal-miembro');
+}
+
+async function guardarMiembro() {
+  const nombre = document.getElementById('mb-nombre').value.trim();
+  if (!nombre) { alert('El nombre es obligatorio'); return; }
+  EQUIPO.push({
+    id: uid(),
+    nombre,
+    rol: document.getElementById('mb-rol').value,
+    tipo: document.getElementById('mb-tipo').value,
+    monto: parseFloat(document.getElementById('mb-monto').value) || 0,
+    moneda: document.getElementById('mb-moneda').value,
+    estado: document.getElementById('mb-estado').value
+  });
+  setSyncState('syncing');
+  await apiPost('saveMiembro', { data: EQUIPO[EQUIPO.length-1] });
+  setSyncState('ok');
+  closeModal('modal-miembro');
+  renderFinanzas();
+}
+
+async function eliminarMiembro(id) {
+  if (!confirm('¿Eliminar este miembro del equipo?')) return;
+  EQUIPO = EQUIPO.filter(m => m.id !== id);
+  setSyncState('syncing');
+  await apiPost('deleteMiembro', { id });
+  setSyncState('ok');
+  renderFinanzas();
+}
+
+function renderFinanzas() {
+  const mon = monedaBalance;
+  const filterTipo = document.getElementById('filter-egreso-tipo')?.value || '';
+  const filterMon = document.getElementById('filter-egreso-moneda')?.value || '';
+
+  // ── BALANCE ────────────────────────────────────────────────────────────────
+  const ingresos = DB.flatMap(c => (c.ciclos||[]).flatMap(ci =>
+    (ci.pagos||[]).filter(p => p.estado==='Pagado' && c.moneda===mon)
+    .map(p => parseFloat(p.monto)||0)
+  )).reduce((a,b)=>a+b,0);
+
+  const egresos_mon = EGRESOS.filter(e => e.moneda===mon)
+    .reduce((a,e) => a + (parseFloat(e.monto)||0), 0);
+
+  const caja = ingresos - egresos_mon;
+  const porCobrar = DB.flatMap(c => (c.ciclos||[]).flatMap(ci =>
+    (ci.pagos||[]).filter(p => p.estado==='Pendiente' && c.moneda===mon)
+    .map(p => parseFloat(p.monto)||0)
+  )).reduce((a,b)=>a+b,0);
+
+  const sym = mon === 'S/' ? 'S/' : mon === 'USD' ? 'USD' : 'COP';
+
+  const metricsEl = document.getElementById('balance-metrics');
+  if (metricsEl) metricsEl.innerHTML = `
+    <div class="metric metric-accent" style="border-top-color:#28a745">
+      <div class="metric-label">Total ingresos ${sym}</div>
+      <div class="metric-val" style="color:#155724;font-size:20px">${sym} ${ingresos.toLocaleString()}</div>
+      <div class="metric-sub">pagos cobrados</div>
+    </div>
+    <div class="metric metric-accent" style="border-top-color:#dc3545">
+      <div class="metric-label">Total egresos ${sym}</div>
+      <div class="metric-val" style="color:#721c24;font-size:20px">${sym} ${egresos_mon.toLocaleString()}</div>
+      <div class="metric-sub">salidas registradas</div>
+    </div>
+    <div class="metric metric-accent" style="border-top-color:${caja>=0?'var(--vino)':'#dc3545'}">
+      <div class="metric-label">💰 Caja neta ${sym}</div>
+      <div class="metric-val" style="color:${caja>=0?'var(--vino)':'#dc3545'};font-size:20px">${sym} ${caja.toLocaleString()}</div>
+      <div class="metric-sub">ingresos − egresos</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Por cobrar ${sym}</div>
+      <div class="metric-val" style="color:#856404;font-size:20px">${sym} ${porCobrar.toLocaleString()}</div>
+      <div class="metric-sub">pagos pendientes</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Caja proyectada ${sym}</div>
+      <div class="metric-val" style="font-size:20px">${sym} ${(caja+porCobrar).toLocaleString()}</div>
+      <div class="metric-sub">caja + por cobrar</div>
+    </div>
+  `;
+
+  // ── LISTA EGRESOS ─────────────────────────────────────────────────────────
+  const tipoColors = {'Sueldo':'badge-blue','Gasto operativo':'badge-lilac','Retiro personal':'badge-vino','Otro':'badge-gray'};
+  const egresosEl = document.getElementById('egresos-list');
+  const egFiltered = EGRESOS
+    .filter(e => (!filterTipo||e.tipo===filterTipo) && (!filterMon||e.moneda===filterMon))
+    .sort((a,b) => b.fecha.localeCompare(a.fecha));
+
+  if (egresosEl) egresosEl.innerHTML = egFiltered.length === 0
+    ? '<div class="empty-state"><i class="ti ti-minus-circle"></i><p>Sin egresos registrados</p></div>'
+    : egFiltered.map(e => `
+      <div class="pago-row">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+            <span class="badge ${tipoColors[e.tipo]||'badge-gray'}" style="font-size:10px">${e.tipo}</span>
+            <strong style="font-size:13px">${e.destinatario||'—'}</strong>
+          </div>
+          <div style="font-size:11px;color:var(--text3)">${fmtDate(e.fecha)}${e.motivo?' · '+e.motivo:''}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-weight:700;font-size:14px;color:#721c24">− ${e.moneda} ${parseFloat(e.monto).toLocaleString()}</div>
+          <button class="btn btn-sm btn-icon btn-danger" style="margin-top:4px" onclick="eliminarEgreso('${e.id}')"><i class="ti ti-trash"></i></button>
+        </div>
+      </div>`).join('');
+
+  // ── EQUIPO ────────────────────────────────────────────────────────────────
+  const equipoEl = document.getElementById('equipo-list');
+  if (equipoEl) equipoEl.innerHTML = EQUIPO.length === 0
+    ? '<div class="empty-state"><i class="ti ti-users"></i><p>Sin miembros registrados</p></div>'
+    : EQUIPO.map(m => {
+        const totalPagado = EGRESOS.filter(e=>e.miembroId===m.id).reduce((a,e)=>a+(parseFloat(e.monto)||0),0);
+        return `
+        <div class="pago-row">
+          <div style="display:flex;align-items:center;gap:10px;flex:1">
+            <div class="avatar" style="width:34px;height:34px;font-size:12px">${initials(m.nombre)}</div>
+            <div>
+              <div style="font-weight:600;font-size:13px">${m.nombre}</div>
+              <div style="font-size:11px;color:var(--text3)">${m.rol||'Sin rol'} · ${m.tipo==='fijo'?m.moneda+' '+parseFloat(m.monto).toLocaleString()+'/mes':'Variable'}</div>
+              <span class="badge ${m.estado==='Activo'?'badge-ok':'badge-gray'}" style="font-size:10px;margin-top:3px">${m.estado}</span>
+            </div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:11px;color:var(--text3)">Total pagado</div>
+            <div style="font-weight:600;font-size:13px">${m.moneda} ${totalPagado.toLocaleString()}</div>
+            <button class="btn btn-sm btn-icon btn-danger" style="margin-top:4px" onclick="eliminarMiembro('${m.id}')"><i class="ti ti-trash"></i></button>
+          </div>
+        </div>`;
+      }).join('');
+}
+
+// ── PROSPECTOS ──────────────────────────────────────────────────────────────
+let PROSPECTOS = [];
+let editingProspectoId = null;
+
+
+
+function abrirNuevoProspecto() {
+  editingProspectoId = null;
+  ['pr-nombre','pr-nicho','pr-telefono','pr-pais','pr-ig','pr-enlace','pr-comentario'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('pr-estado').value = 'Nos reunimos';
+  document.getElementById('modal-prospecto-title').textContent = 'Nuevo prospecto';
+  openModal('modal-prospecto');
+}
+
+async function guardarProspecto() {
+  const nombre = document.getElementById('pr-nombre').value.trim();
+  if (!nombre) { alert('El nombre es obligatorio'); return; }
+  const data = {
+    id: editingProspectoId || uid(),
+    nombre,
+    nicho: document.getElementById('pr-nicho').value,
+    telefono: document.getElementById('pr-telefono').value,
+    pais: document.getElementById('pr-pais').value,
+    ig: document.getElementById('pr-ig').value,
+    enlace: document.getElementById('pr-enlace').value,
+    estado: document.getElementById('pr-estado').value,
+    comentario: document.getElementById('pr-comentario').value,
+    fecha: editingProspectoId ? (PROSPECTOS.find(p=>p.id===editingProspectoId)?.fecha||today()) : today()
+  };
+  if (editingProspectoId) {
+    const idx = PROSPECTOS.findIndex(p => p.id === editingProspectoId);
+    if (idx >= 0) PROSPECTOS[idx] = data; else PROSPECTOS.push(data);
+  } else {
+    PROSPECTOS.push(data);
+  }
+  setSyncState('syncing');
+  await apiPost('saveProspecto', { data });
+  setSyncState('ok');
+  closeModal('modal-prospecto');
+  editingProspectoId = null;
+  renderProspectos();
+}
+
+function editarProspecto(id) {
+  const p = PROSPECTOS.find(x => x.id === id); if (!p) return;
+  editingProspectoId = id;
+  document.getElementById('pr-nombre').value = p.nombre||'';
+  document.getElementById('pr-nicho').value = p.nicho||'';
+  document.getElementById('pr-telefono').value = p.telefono||'';
+  document.getElementById('pr-pais').value = p.pais||'';
+  document.getElementById('pr-ig').value = p.ig||'';
+  document.getElementById('pr-enlace').value = p.enlace||'';
+  document.getElementById('pr-estado').value = p.estado||'Nos reunimos';
+  document.getElementById('pr-comentario').value = p.comentario||'';
+  document.getElementById('modal-prospecto-title').textContent = 'Editar prospecto';
+  openModal('modal-prospecto');
+}
+
+async function eliminarProspecto(id) {
+  const p = PROSPECTOS.find(x => x.id === id);
+  if (!confirm('¿Eliminar a "' + (p?.nombre||'') + '"?')) return;
+  PROSPECTOS = PROSPECTOS.filter(x => x.id !== id);
+  setSyncState('syncing');
+  await apiPost('deleteProspecto', { id });
+  setSyncState('ok');
+  renderProspectos();
+}
+
+function estadoProspectoBadge(e) {
+  const m = {'Nos reunimos':'badge-blue','Se mostró propuesta':'badge-lilac','Se cerró':'badge-ok','No se cerró':'badge-danger','Seguimiento':'badge-warn'};
+  return '<span class="badge ' + (m[e]||'badge-gray') + '">' + e + '</span>';
+}
+
+function renderProspectos() {
+  const q = (document.getElementById('search-prospectos')?.value||'').toLowerCase();
+  const fe = document.getElementById('filter-estado-prospecto')?.value||'';
+  const rows = PROSPECTOS.filter(p => (!q||(p.nombre||'').toLowerCase().includes(q)||(p.nicho||'').toLowerCase().includes(q))&&(!fe||p.estado===fe));
+
+  const total = PROSPECTOS.length;
+  const cerrados = PROSPECTOS.filter(p=>p.estado==='Se cerró').length;
+  const propuestas = PROSPECTOS.filter(p=>p.estado==='Se mostró propuesta'||p.estado==='Se cerró').length;
+  const seguimiento = PROSPECTOS.filter(p=>p.estado==='Seguimiento').length;
+  const pct = total > 0 ? Math.round(cerrados/total*100) : 0;
+
+  const statsEl = document.getElementById('prospectos-stats');
+  if (statsEl) statsEl.innerHTML = `
+    <div class="metric"><div class="metric-label">Total prospectos</div><div class="metric-val">${total}</div></div>
+    <div class="metric"><div class="metric-label">Propuestas mostradas</div><div class="metric-val">${propuestas}</div></div>
+    <div class="metric"><div class="metric-label">Cerrados</div><div class="metric-val" style="color:#155724">${cerrados}</div></div>
+    <div class="metric metric-accent"><div class="metric-label">% Conversión</div><div class="metric-val" style="color:var(--vino)">${pct}%</div><div class="metric-sub">cerrados / total</div></div>
+    <div class="metric"><div class="metric-label">En seguimiento</div><div class="metric-val" style="color:#856404">${seguimiento}</div></div>
+  `;
+
+  const tbody = document.getElementById('prospectos-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = rows.length === 0
+    ? '<tr><td colspan="8"><div class="empty-state"><i class="ti ti-target"></i><p>Sin prospectos registrados aún</p></div></td></tr>'
+    : rows.map(p => '<tr>' +
+        '<td><strong>' + p.nombre + '</strong><br><span style="font-size:11px;color:var(--text3)">' + fmtDate(p.fecha) + '</span></td>' +
+        '<td>' + (p.nicho||'—') + '</td>' +
+        '<td>' + (p.telefono||'—') + '</td>' +
+        '<td>' + (p.pais||'—') + '</td>' +
+        '<td>' + (p.ig ? '<a href="' + (p.ig.startsWith('http')?p.ig:'https://instagram.com/'+p.ig.replace('@','')) + '" target="_blank" style="color:var(--vino)">' + p.ig + '</a>' : '—') + '</td>' +
+        '<td>' + estadoProspectoBadge(p.estado) + '</td>' +
+        '<td style="max-width:180px;font-size:12px;color:var(--text2)">' + (p.comentario||'—') + '</td>' +
+        '<td><div style="display:flex;gap:4px">' +
+          (p.enlace ? '<a href="' + p.enlace + '" target="_blank" class="btn btn-sm btn-icon" title="Ver enlace"><i class="ti ti-external-link"></i></a>' : '') +
+          '<button class="btn btn-sm btn-icon" onclick="editarProspecto('' + p.id + '')" title="Editar"><i class="ti ti-edit"></i></button>' +
+          '<button class="btn btn-sm btn-icon btn-danger" onclick="eliminarProspecto('' + p.id + '')" title="Eliminar"><i class="ti ti-trash"></i></button>' +
+        '</div></td></tr>'
+      ).join('');
+}
+
 document.getElementById('today-label').textContent = new Date().toLocaleDateString('es-PE', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
 toggleModalidad();
 recargar();
