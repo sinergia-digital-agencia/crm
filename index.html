@@ -804,9 +804,14 @@ function renderDashboard() {
   const activos = DB.filter(c => c.estado === 'Activo');
   const allPagos = DB.flatMap(c => (c.ciclos || []).flatMap(ci => ci.pagos || []));
   const pendientes = DB.flatMap(c => { const np = nextPago(c); return np ? [{ ...np, cliente: c.nombre, moneda: c.moneda, clienteId: c.id }] : []; });
+  // Calcular mesActual aqui para usarlo en venc30
+  const _anioSel2 = dashFiltroAnio || today().substring(0,4);
+  const _mesSel2 = dashFiltroMes;
+  const _mesActualTemp = _anioSel2 + '-' + (_mesSel2 || today().substring(5,7));
+
   const venc30 = pendientes.filter(p => {
     if (dashFiltroMes !== '') {
-      return (p.fecha||'').startsWith(mesActual);
+      return (p.fecha||'').startsWith(_mesActualTemp);
     }
     const d = diffDays(p.fecha);
     return d !== null && d <= 30;
@@ -825,7 +830,7 @@ function renderDashboard() {
   // Mes seleccionado en el filtro
   const anioSel = dashFiltroAnio || today().substring(0,4);
   const mesSel = dashFiltroMes;
-  const mesActual = anioSel + '-' + (mesSel || today().substring(5,7));
+  const mesActual = _mesActualTemp; // usar el ya calculado
     const cobradoMesS = DB.flatMap(c=>(c.ciclos||[]).flatMap(ci=>(ci.pagos||[]).filter(p=>p.estado==='Pagado'&&c.moneda==='S/'&&(p.fecha||'').startsWith(mesActual)).map(p=>parseFloat(p.monto)||0))).reduce((a,b)=>a+b,0)
     + INGRESOS_MANUAL.filter(i=>i.moneda==='S/'&&(i.fecha||'').startsWith(mesActual)).reduce((a,i)=>a+(parseFloat(i.monto)||0),0);
   const cobradoMesU = DB.flatMap(c=>(c.ciclos||[]).flatMap(ci=>(ci.pagos||[]).filter(p=>p.estado==='Pagado'&&c.moneda==='USD'&&(p.fecha||'').startsWith(mesActual)).map(p=>parseFloat(p.monto)||0))).reduce((a,b)=>a+b,0)
