@@ -794,12 +794,13 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
 function renderDashboard() {
-  // Leer siempre directo del DOM para sincronizar con lo que muestra el selector
-  const _mesSel = document.getElementById('dash-mes');
-  const _anioSel = document.getElementById('dash-anio');
-  if (_mesSel) dashFiltroMes = _mesSel.value;
-  if (_anioSel) dashFiltroAnio = _anioSel.value || '2026';
+  // Sincronizar globals con DOM si el selector existe
+  const _ms = document.getElementById('dash-mes');
+  const _as = document.getElementById('dash-anio');
+  if (_ms !== null) dashFiltroMes = _ms.value;
+  if (_as !== null) dashFiltroAnio = _as.value || today().substring(0,4);
   const hasMesFiltro = dashFiltroMes !== '';
+  console.log('renderDashboard: mes='+dashFiltroMes+' anio='+dashFiltroAnio+' hasFiltro='+hasMesFiltro);
   const activos = DB.filter(c => c.estado === 'Activo');
   const allPagos = DB.flatMap(c => (c.ciclos || []).flatMap(ci => ci.pagos || []));
   const pendientes = DB.flatMap(c => { const np = nextPago(c); return np ? [{ ...np, cliente: c.nombre, moneda: c.moneda, clienteId: c.id }] : []; });
@@ -868,6 +869,10 @@ function renderDashboard() {
   const cajaPeriodoS = ingPeriodoS - egrPeriodoS;
   const cajaPeriodoU = ingPeriodoU - egrPeriodoU;
   const cajaPeriodoC = ingPeriodoC - egrPeriodoC;
+
+  // Update selector to show current filter
+  const _msEl = document.getElementById('dash-mes');
+  if (_msEl) _msEl.value = dashFiltroMes;
 
   document.getElementById('metrics-row').innerHTML = `
     <div class="metric metric-accent">
