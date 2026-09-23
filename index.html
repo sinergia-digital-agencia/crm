@@ -813,6 +813,7 @@ function renderDashboard() {
   const anioSel = dashFiltroAnio || today().substring(0,4);
   const mesSel = dashFiltroMes;
   const mesActual = anioSel + '-' + (mesSel || today().substring(5,7));
+  const hasMesFiltro = dashFiltroMes !== '';
   const cobradoMesS = DB.flatMap(c=>(c.ciclos||[]).flatMap(ci=>(ci.pagos||[]).filter(p=>p.estado==='Pagado'&&c.moneda==='S/'&&(p.fecha||'').startsWith(mesActual)).map(p=>parseFloat(p.monto)||0))).reduce((a,b)=>a+b,0)
     + INGRESOS_MANUAL.filter(i=>i.moneda==='S/'&&(i.fecha||'').startsWith(mesActual)).reduce((a,i)=>a+(parseFloat(i.monto)||0),0);
   const cobradoMesU = DB.flatMap(c=>(c.ciclos||[]).flatMap(ci=>(ci.pagos||[]).filter(p=>p.estado==='Pagado'&&c.moneda==='USD'&&(p.fecha||'').startsWith(mesActual)).map(p=>parseFloat(p.monto)||0))).reduce((a,b)=>a+b,0)
@@ -840,7 +841,6 @@ function renderDashboard() {
 
   // ── Calcular para el periodo seleccionado ────────────────────────────────
   // mesActual ya tiene YYYY-MM del selector (o mes actual si no hay selección)
-  const hasMesFiltro = dashFiltroMes !== '';
   const labelPeriodo = mesNombre;
 
   const filtrarMes = (fecha) => !hasMesFiltro || (fecha||'').startsWith(mesActual);
