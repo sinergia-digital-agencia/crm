@@ -1050,9 +1050,21 @@ async function guardarComprobante() {
     const p = (ci.pagos || []).find(x => x.id === _compCtx.pagoId);
     if (p) { p.comprobante = { nombre, link, notas: document.getElementById('comp-notas').value, fecha: today() }; pagoData = p; cicloNum = ci.num; break; }
   }
+  if (!pagoData) { alert('No se encontró el pago. Por favor recarga la página.'); return; }
   closeModal('modal-comp');
   setSyncState('syncing');
-  await apiPost('updatePago', { data: { id: pagoData.id, clienteId: _compCtx.clienteId, ciclo: cicloNum, fecha: pagoData.fecha, concepto: pagoData.concepto, monto: pagoData.monto, estado: pagoData.estado, comprobanteNombre: nombre, comprobanteLink: link, comprobanteNotas: document.getElementById('comp-notas').value } });
+  await apiPost('updatePago', { data: { 
+    id: pagoData.id, 
+    clienteId: String(_compCtx.clienteId), 
+    ciclo: cicloNum, 
+    fecha: pagoData.fecha, 
+    concepto: pagoData.concepto, 
+    monto: pagoData.monto, 
+    estado: pagoData.estado, 
+    comprobanteNombre: nombre, 
+    comprobanteLink: link, 
+    comprobanteNotas: document.getElementById('comp-notas').value 
+  }});
   setSyncState('ok');
   if (document.getElementById('view-detalle').classList.contains('active')) verDetalle(_compCtx.clienteId);
   renderPagos();
