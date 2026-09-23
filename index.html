@@ -601,6 +601,30 @@ button{cursor:pointer;font-family:var(--font)}
   </div>
 </div>
 
+<!-- MODAL: editar pago -->
+<div class="overlay" id="modal-editar-pago">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Editar pago</span>
+      <button class="btn btn-icon btn-sm" onclick="closeModal('modal-editar-pago')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="alert alert-info" id="modal-editar-pago-info" style="margin-bottom:14px"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Monto recibido</label><input id="ep-monto" type="number" placeholder="0"></div>
+      <div class="form-group"><label>Moneda recibida</label>
+        <select id="ep-moneda"><option>S/</option><option>USD</option><option>COP</option></select>
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:18px"><label>Fecha</label>
+      <input id="ep-fecha" type="date">
+    </div>
+    <div class="btn-group" style="justify-content:flex-end">
+      <button class="btn btn-sm" onclick="closeModal('modal-editar-pago')">Cancelar</button>
+      <button class="btn btn-primary btn-sm" onclick="guardarEditarPago()"><i class="ti ti-device-floppy"></i>Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: comprobante -->
 <div class="overlay" id="modal-comp">
   <div class="modal">
@@ -892,7 +916,11 @@ function renderPagos() {
     const compBtn = p.comprobante
       ? `<a href="${p.comprobante.link}" target="_blank" class="btn btn-sm" style="font-size:11px;padding:3px 9px"><i class="ti ti-external-link"></i>${p.comprobante.nombre}</a>`
       : `<button class="btn btn-sm" style="font-size:11px;padding:3px 9px" onclick="abrirComprobante('${p.clienteId}','${p.id}')"><i class="ti ti-link"></i>Adjuntar</button>`;
-    return `<tr><td>${fmtDate(p.fecha)}</td><td>${p.cliente}</td><td>${p.concepto}</td><td style="font-weight:600">${p.moneda} ${parseFloat(p.monto).toLocaleString()}</td><td><span class="badge ${bs}">${p.estado}</span></td><td>${compBtn}</td><td class="hide-mobile"><span class="badge badge-gray">Ciclo ${p.ciclo}</span></td></tr>`;
+    return `<tr><td>${fmtDate(p.fecha)}</td><td>${p.cliente}</td><td>${p.concepto}</td>
+      <td style="font-weight:600">${p.moneda} ${parseFloat(p.monto).toLocaleString()}
+        <button class="btn btn-sm btn-icon" style="margin-left:4px;width:22px;height:22px" onclick="abrirEditarPago('${p.clienteId}','${p.id}','${p.moneda}',${p.monto},'${p.fecha}')" title="Editar monto"><i class="ti ti-edit" style="font-size:11px"></i></button>
+      </td>
+      <td><span class="badge ${bs}">${p.estado}</span></td><td>${compBtn}</td><td class="hide-mobile"><span class="badge badge-gray">Ciclo ${p.ciclo}</span></td></tr>`;
   }).join('');
 }
 
@@ -1085,6 +1113,76 @@ async function guardarComprobante() {
   }
   if (document.getElementById('view-detalle').classList.contains('active')) verDetalle(_compCtx.clienteId);
   renderPagos();
+}
+
+// ── EDITAR PAGO ───────────────────────────────────────────────────────────────
+let _editPagoCtx = null;
+
+function abrirEditarPago(clienteId, pagoId, moneda, monto, fecha) {
+  _editPagoCtx = { clienteId: String(clienteId), pagoId };
+  const c = DB.find(x => String(x.id) === String(clienteId));
+  const p = (c?.ciclos||[]).flatMap(ci=>ci.pagos||[]).find(x=>x.id===pagoId);
+  document.getElementById('modal-editar-pago-info').innerHTML =
+    `<i class="ti ti-info-circle"></i> <strong>${p?.concepto||''}</strong> · ${c?.nombre||''}`;
+  document.getElementById('ep-monto').value = monto;
+  document.getElementById('ep-moneda').value = moneda;
+  document.getElementById('ep-fecha').value = fecha || today();
+  openModal('modal-editar-pago');
+}
+
+async function guardarEditarPago() {
+  const nuevoMonto = parseFloat(document.getElementById('ep-monto').value);
+  const nuevaMoneda = document.getElementById('ep-moneda').value;
+  const nuevaFecha = document.getElementById('ep-fecha').value;
+  if (!nuevoMonto) { alert('El monto es obligatorio'); return; }
+
+  const c = DB.find(x => String(x.id) === String(_editPagoCtx.clienteId));
+  if (!c) { alert('Cliente no encontrado'); return; }
+
+  let pagoData = null;
+  let cicloNum = null;
+  for (const ci of (c.ciclos||[])) {
+    const p = (ci.pagos||[]).find(x => x.id === _editPagoCtx.pagoId);
+    if (p) {
+      p.monto = nuevoMonto;
+      p.fecha = nuevaFecha;
+      pagoData = p;
+      cicloNum = ci.num;
+      // Actualizar moneda del cliente si cambió
+      if (nuevaMoneda !== c.moneda) {
+        // Guardamos la moneda original y usamos la nueva para este pago
+        p._monedaOverride = nuevaMoneda;
+      }
+      break;
+    }
+  }
+
+  if (!pagoData) { alert('Pago no encontrado'); return; }
+  closeModal('modal-editar-pago');
+  setSyncState('syncing');
+  try {
+    await apiPost('updatePago', { data: {
+      id: pagoData.id,
+      clienteId: String(_editPagoCtx.clienteId),
+      ciclo: cicloNum,
+      fecha: nuevaFecha,
+      concepto: pagoData.concepto,
+      monto: nuevoMonto,
+      moneda: nuevaMoneda,
+      estado: pagoData.estado,
+      comprobanteNombre: pagoData.comprobante?.nombre || '',
+      comprobanteLink: pagoData.comprobante?.link || '',
+      comprobanteNotas: pagoData.comprobante?.notas || ''
+    }});
+    setSyncState('ok');
+  } catch(e) {
+    setSyncState('error');
+    alert('Error al guardar. Intenta de nuevo.');
+    return;
+  }
+  renderPagos();
+  if (document.getElementById('view-detalle').classList.contains('active')) verDetalle(_editPagoCtx.clienteId);
+  renderDashboard();
 }
 
 // ── DOCUMENTOS ────────────────────────────────────────────────────────────────
