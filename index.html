@@ -1636,7 +1636,7 @@ function renderProspectos() {
 
   const total = PROSPECTOS.length;
   const cerrados = PROSPECTOS.filter(p=>p.estado==='Se cerró').length;
-  const propuestas = PROSPECTOS.filter(p=>p.estado==='Se mostró propuesta'||p.estado==='Se cerró').length;
+  const propuestas = PROSPECTOS.filter(p=>['Se mostró propuesta','Se cerró','No se cerró','Seguimiento'].includes(p.estado)).length;
   const seguimiento = PROSPECTOS.filter(p=>p.estado==='Seguimiento').length;
   const pct = total > 0 ? Math.round(cerrados/total*100) : 0;
 
