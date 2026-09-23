@@ -218,10 +218,29 @@ button{cursor:pointer;font-family:var(--font)}
 
   <!-- DASHBOARD -->
   <div class="view active" id="view-dashboard">
-    <div class="page-header"><h2>Dashboard</h2><button class="btn btn-sm" onclick="recargar()"><i class="ti ti-refresh"></i>Actualizar</button></div>
+    <div class="page-header">
+      <h2>Dashboard</h2>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select class="search-bar" id="dash-mes" onchange="renderDashboard()" style="width:auto">
+          <option value="">Este mes</option>
+          <option value="01">Enero</option><option value="02">Febrero</option>
+          <option value="03">Marzo</option><option value="04">Abril</option>
+          <option value="05">Mayo</option><option value="06">Junio</option>
+          <option value="07">Julio</option><option value="08">Agosto</option>
+          <option value="09">Septiembre</option><option value="10">Octubre</option>
+          <option value="11">Noviembre</option><option value="12">Diciembre</option>
+        </select>
+        <select class="search-bar" id="dash-anio" onchange="renderDashboard()" style="width:auto">
+          <option value="2025">2025</option>
+          <option value="2026" selected>2026</option>
+          <option value="2027">2027</option>
+        </select>
+        <button class="btn btn-sm" onclick="recargar()"><i class="ti ti-refresh"></i>Actualizar</button>
+      </div>
+    </div>
     <div class="metrics" id="metrics-row"><div class="loading"><div class="spinner"></div></div></div>
     <div class="card-grid" style="grid-template-columns:1fr 1fr;">
-      <div class="card"><div class="section-title">Vencimientos próximos — 30 días</div><div id="upcoming-list"><div class="loading"><div class="spinner"></div></div></div></div>
+      <div class="card"><div class="section-title" id="upcoming-label">Vencimientos próximos — 30 días</div><div id="upcoming-list"><div class="loading"><div class="spinner"></div></div></div></div>
       <div class="card"><div class="section-title">Clientes activos</div><div id="active-clients-list"><div class="loading"><div class="spinner"></div></div></div></div>
       <div class="card" style="grid-column:1/-1"><div class="section-title">Ingresos por mes (últimos 6 meses)</div><div id="mes-resumen"><div class="loading"><div class="spinner"></div></div></div></div>
       <div class="card" style="grid-column:1/-1"><div class="section-title">Balance general — Caja Sinergia Digital</div><div id="dashboard-balance"><div class="loading"><div class="spinner"></div></div></div></div>
@@ -769,7 +788,14 @@ function renderDashboard() {
   const activos = DB.filter(c => c.estado === 'Activo');
   const allPagos = DB.flatMap(c => (c.ciclos || []).flatMap(ci => ci.pagos || []));
   const pendientes = DB.flatMap(c => { const np = nextPago(c); return np ? [{ ...np, cliente: c.nombre, moneda: c.moneda, clienteId: c.id }] : []; });
-  const venc30 = pendientes.filter(p => { const d = diffDays(p.fecha); return d !== null && d <= 30; });
+  const venc30 = pendientes.filter(p => {
+    if (document.getElementById('dash-mes')?.value) {
+      // Si hay mes seleccionado, mostrar pagos de ese mes
+      return (p.fecha||'').startsWith(mesActual);
+    }
+    const d = diffDays(p.fecha);
+    return d !== null && d <= 30;
+  });
   const totalDocs = DB.reduce((a, c) => a + (c.docs || []).length, 0);
   const inactivos = DB.filter(c => c.estado !== 'Activo').length;
 
@@ -781,15 +807,78 @@ function renderDashboard() {
   const cS=suma('S/',true), cU=suma('USD',true), cC=suma('COP',true);
   const pS=suma('S/',false), pU=suma('USD',false), pC=suma('COP',false);
 
+  // Mes seleccionado en el filtro
+  const anioSel = document.getElementById('dash-anio')?.value || today().substring(0,4);
+  const mesSel = document.getElementById('dash-mes')?.value || today().substring(5,7);
+  const mesActual = anioSel + '-' + mesSel;
+  const cobradoMesS = DB.flatMap(c=>(c.ciclos||[]).flatMap(ci=>(ci.pagos||[]).filter(p=>p.estado==='Pagado'&&c.moneda==='S/'&&(p.fecha||'').startsWith(mesActual)).map(p=>parseFloat(p.monto)||0))).reduce((a,b)=>a+b,0)
+    + INGRESOS_MANUAL.filter(i=>i.moneda==='S/'&&(i.fecha||'').startsWith(mesActual)).reduce((a,i)=>a+(parseFloat(i.monto)||0),0);
+  const cobradoMesU = DB.flatMap(c=>(c.ciclos||[]).flatMap(ci=>(ci.pagos||[]).filter(p=>p.estado==='Pagado'&&c.moneda==='USD'&&(p.fecha||'').startsWith(mesActual)).map(p=>parseFloat(p.monto)||0))).reduce((a,b)=>a+b,0)
+    + INGRESOS_MANUAL.filter(i=>i.moneda==='USD'&&(i.fecha||'').startsWith(mesActual)).reduce((a,i)=>a+(parseFloat(i.monto)||0),0);
+  const cobradoMesC = DB.flatMap(c=>(c.ciclos||[]).flatMap(ci=>(ci.pagos||[]).filter(p=>p.estado==='Pagado'&&c.moneda==='COP'&&(p.fecha||'').startsWith(mesActual)).map(p=>parseFloat(p.monto)||0))).reduce((a,b)=>a+b,0)
+    + INGRESOS_MANUAL.filter(i=>i.moneda==='COP'&&(i.fecha||'').startsWith(mesActual)).reduce((a,i)=>a+(parseFloat(i.monto)||0),0);
+
+  // Egresos este mes  
+  const egresosMesS = EGRESOS.filter(e=>e.moneda==='S/'&&(e.fecha||'').startsWith(mesActual)).reduce((a,e)=>a+(parseFloat(e.monto)||0),0);
+  const cajaMesS = cobradoMesS - egresosMesS;
+
+  const mesesNombres2 = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const mesNombre = mesesNombres2[parseInt(mesActual.split('-')[1])-1] + ' ' + anioSel;
+
+  // ── Totales históricos completos ─────────────────────────────────────────
+  const totalIngS  = cS + INGRESOS_MANUAL.filter(i=>i.moneda==='S/').reduce((a,i)=>a+(parseFloat(i.monto)||0),0);
+  const totalIngU  = cU + INGRESOS_MANUAL.filter(i=>i.moneda==='USD').reduce((a,i)=>a+(parseFloat(i.monto)||0),0);
+  const totalIngC  = cC + INGRESOS_MANUAL.filter(i=>i.moneda==='COP').reduce((a,i)=>a+(parseFloat(i.monto)||0),0);
+  const totalEgrS  = EGRESOS.filter(e=>e.moneda==='S/').reduce((a,e)=>a+(parseFloat(e.monto)||0),0);
+  const totalEgrU  = EGRESOS.filter(e=>e.moneda==='USD').reduce((a,e)=>a+(parseFloat(e.monto)||0),0);
+  const totalEgrC  = EGRESOS.filter(e=>e.moneda==='COP').reduce((a,e)=>a+(parseFloat(e.monto)||0),0);
+  const cajaS = totalIngS - totalEgrS;
+  const cajaU = totalIngU - totalEgrU;
+  const cajaC = totalIngC - totalEgrC;
+
+  // ── Totales del mes seleccionado ──────────────────────────────────────────
+  const hasMesFiltro = !!document.getElementById('dash-mes')?.value;
+  const labelPeriodo = hasMesFiltro ? mesNombre : 'Total histórico';
+
+  const ingMesS = cobradoMesS;
+  const ingMesU = cobradoMesU;
+  const ingMesC = cobradoMesC;
+  const egrMesS = hasMesFiltro ? EGRESOS.filter(e=>e.moneda==='S/'&&(e.fecha||'').startsWith(mesActual)).reduce((a,e)=>a+(parseFloat(e.monto)||0),0) : totalEgrS;
+  const egrMesU = hasMesFiltro ? EGRESOS.filter(e=>e.moneda==='USD'&&(e.fecha||'').startsWith(mesActual)).reduce((a,e)=>a+(parseFloat(e.monto)||0),0) : totalEgrU;
+  const cajaPeriodoS = (hasMesFiltro ? ingMesS : totalIngS) - egrMesS;
+  const cajaPeriodoU = (hasMesFiltro ? ingMesU : totalIngU) - egrMesU;
+  const cajaPeriodoC = (hasMesFiltro ? ingMesC : totalIngC) - (hasMesFiltro ? EGRESOS.filter(e=>e.moneda==='COP'&&(e.fecha||'').startsWith(mesActual)).reduce((a,e)=>a+(parseFloat(e.monto)||0),0) : totalEgrC);
+
   document.getElementById('metrics-row').innerHTML = `
-    <div class="metric metric-accent"><div class="metric-label">Clientes activos</div><div class="metric-val">${activos.length}</div><div class="metric-sub">${inactivos} inactivo${inactivos!==1?'s':''}</div></div>
-    <div class="metric"><div class="metric-label">Cobrado S/</div><div class="metric-val" style="font-size:18px">S/ ${cS.toLocaleString()}</div><div class="metric-sub" style="color:${pS>0?'#856404':'var(--text3)'}">Por cobrar: S/ ${pS.toLocaleString()}</div></div>
-    <div class="metric"><div class="metric-label">Cobrado USD</div><div class="metric-val" style="font-size:18px">$ ${cU.toLocaleString()}</div><div class="metric-sub" style="color:${pU>0?'#856404':'var(--text3)'}">Por cobrar: $ ${pU.toLocaleString()}</div></div>
-    <div class="metric"><div class="metric-label">Cobrado COP</div><div class="metric-val" style="font-size:18px">COP ${cC.toLocaleString()}</div><div class="metric-sub" style="color:${pC>0?'#856404':'var(--text3)'}">Por cobrar: COP ${pC.toLocaleString()}</div></div>
-    <div class="metric"><div class="metric-label">Vencen en 30d</div><div class="metric-val" style="color:${venc30.length>0?'#856404':'inherit'}">${venc30.length}</div><div class="metric-sub">requieren atención</div></div>
-    <div class="metric"><div class="metric-label">Documentos</div><div class="metric-val">${totalDocs}</div><div class="metric-sub">archivados</div></div>
+    <div class="metric metric-accent">
+      <div class="metric-label">Clientes activos</div>
+      <div class="metric-val">${activos.length}</div>
+      <div class="metric-sub">${inactivos} inactivo${inactivos!==1?'s':''} · ${venc30.length} por vencer</div>
+    </div>
+    <div class="metric" style="border-top:3px solid #28a745">
+      <div class="metric-label">📥 Ingresos — ${labelPeriodo}</div>
+      <div class="metric-val" style="font-size:17px;color:#155724">S/ ${(hasMesFiltro?ingMesS:totalIngS).toLocaleString()}</div>
+      <div class="metric-sub">${(hasMesFiltro?ingMesU:totalIngU)>0?`USD ${(hasMesFiltro?ingMesU:totalIngU).toLocaleString()} · `:''}${(hasMesFiltro?ingMesC:totalIngC)>0?`COP ${(hasMesFiltro?ingMesC:totalIngC).toLocaleString()}`:''}</div>
+    </div>
+    <div class="metric" style="border-top:3px solid #dc3545">
+      <div class="metric-label">📤 Egresos — ${labelPeriodo}</div>
+      <div class="metric-val" style="font-size:17px;color:#721c24">S/ ${egrMesS.toLocaleString()}</div>
+      <div class="metric-sub">${egrMesU>0?`USD ${egrMesU.toLocaleString()}`:''}</div>
+    </div>
+    <div class="metric" style="border-top:3px solid var(--vino)">
+      <div class="metric-label">💰 Caja neta — ${labelPeriodo}</div>
+      <div class="metric-val" style="font-size:17px;color:${cajaPeriodoS>=0?'var(--vino)':'#dc3545'}">S/ ${cajaPeriodoS.toLocaleString()}</div>
+      <div class="metric-sub">${cajaPeriodoU!==0?`USD ${cajaPeriodoU.toLocaleString()} · `:''}${cajaPeriodoC!==0?`COP ${cajaPeriodoC.toLocaleString()}`:''}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">⏳ Por cobrar S/</div>
+      <div class="metric-val" style="font-size:17px;color:#856404">S/ ${pS.toLocaleString()}</div>
+      <div class="metric-sub">${pU>0?`USD ${pU.toLocaleString()} · `:''}${pC>0?`COP ${pC.toLocaleString()}`:'pagos pendientes'}</div>
+    </div>
   `;
 
+  const labelEl = document.getElementById('upcoming-label');
+  if (labelEl) labelEl.textContent = document.getElementById('dash-mes')?.value ? `Pagos pendientes — ${mesNombre}` : 'Vencimientos próximos — 30 días';
   const ul = document.getElementById('upcoming-list');
   ul.innerHTML = venc30.length === 0
     ? '<div class="empty-state"><i class="ti ti-check"></i><p>Sin vencimientos próximos</p></div>'
