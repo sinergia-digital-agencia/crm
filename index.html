@@ -811,6 +811,7 @@ function renderDashboard() {
   const anioSel = document.getElementById('dash-anio')?.value || today().substring(0,4);
   const mesSel = document.getElementById('dash-mes')?.value || today().substring(5,7);
   const mesActual = anioSel + '-' + mesSel;
+  // mesActual solo se usa para filtrar cuando hasMesFiltro=true
   const cobradoMesS = DB.flatMap(c=>(c.ciclos||[]).flatMap(ci=>(ci.pagos||[]).filter(p=>p.estado==='Pagado'&&c.moneda==='S/'&&(p.fecha||'').startsWith(mesActual)).map(p=>parseFloat(p.monto)||0))).reduce((a,b)=>a+b,0)
     + INGRESOS_MANUAL.filter(i=>i.moneda==='S/'&&(i.fecha||'').startsWith(mesActual)).reduce((a,i)=>a+(parseFloat(i.monto)||0),0);
   const cobradoMesU = DB.flatMap(c=>(c.ciclos||[]).flatMap(ci=>(ci.pagos||[]).filter(p=>p.estado==='Pagado'&&c.moneda==='USD'&&(p.fecha||'').startsWith(mesActual)).map(p=>parseFloat(p.monto)||0))).reduce((a,b)=>a+b,0)
@@ -836,18 +837,26 @@ function renderDashboard() {
   const cajaU = totalIngU - totalEgrU;
   const cajaC = totalIngC - totalEgrC;
 
-  // ── Totales del mes seleccionado ──────────────────────────────────────────
-  const hasMesFiltro = !!document.getElementById('dash-mes')?.value;
-  const labelPeriodo = hasMesFiltro ? mesNombre : 'Total histórico';
+  // ── Calcular para el periodo seleccionado ────────────────────────────────
+  // mesActual ya tiene YYYY-MM del selector (o mes actual si no hay selección)
+  const mesFiltroVal = document.getElementById('dash-mes')?.value || '';
+  const hasMesFiltro = mesFiltroVal !== '';
+  const labelPeriodo = mesNombre;
 
-  const ingMesS = cobradoMesS;
-  const ingMesU = cobradoMesU;
-  const ingMesC = cobradoMesC;
-  const egrMesS = hasMesFiltro ? EGRESOS.filter(e=>e.moneda==='S/'&&(e.fecha||'').startsWith(mesActual)).reduce((a,e)=>a+(parseFloat(e.monto)||0),0) : totalEgrS;
-  const egrMesU = hasMesFiltro ? EGRESOS.filter(e=>e.moneda==='USD'&&(e.fecha||'').startsWith(mesActual)).reduce((a,e)=>a+(parseFloat(e.monto)||0),0) : totalEgrU;
-  const cajaPeriodoS = (hasMesFiltro ? ingMesS : totalIngS) - egrMesS;
-  const cajaPeriodoU = (hasMesFiltro ? ingMesU : totalIngU) - egrMesU;
-  const cajaPeriodoC = (hasMesFiltro ? ingMesC : totalIngC) - (hasMesFiltro ? EGRESOS.filter(e=>e.moneda==='COP'&&(e.fecha||'').startsWith(mesActual)).reduce((a,e)=>a+(parseFloat(e.monto)||0),0) : totalEgrC);
+  const filtrarMes = (fecha) => !hasMesFiltro || (fecha||'').startsWith(mesActual);
+
+  const ingPeriodoS = DB.flatMap(c=>(c.ciclos||[]).flatMap(ci=>(ci.pagos||[]).filter(p=>p.estado==='Pagado'&&c.moneda==='S/'&&filtrarMes(p.fecha)).map(p=>parseFloat(p.monto)||0))).reduce((a,b)=>a+b,0)
+    + INGRESOS_MANUAL.filter(i=>i.moneda==='S/'&&filtrarMes(i.fecha)).reduce((a,i)=>a+(parseFloat(i.monto)||0),0);
+  const ingPeriodoU = DB.flatMap(c=>(c.ciclos||[]).flatMap(ci=>(ci.pagos||[]).filter(p=>p.estado==='Pagado'&&c.moneda==='USD'&&filtrarMes(p.fecha)).map(p=>parseFloat(p.monto)||0))).reduce((a,b)=>a+b,0)
+    + INGRESOS_MANUAL.filter(i=>i.moneda==='USD'&&filtrarMes(i.fecha)).reduce((a,i)=>a+(parseFloat(i.monto)||0),0);
+  const ingPeriodoC = DB.flatMap(c=>(c.ciclos||[]).flatMap(ci=>(ci.pagos||[]).filter(p=>p.estado==='Pagado'&&c.moneda==='COP'&&filtrarMes(p.fecha)).map(p=>parseFloat(p.monto)||0))).reduce((a,b)=>a+b,0)
+    + INGRESOS_MANUAL.filter(i=>i.moneda==='COP'&&filtrarMes(i.fecha)).reduce((a,i)=>a+(parseFloat(i.monto)||0),0);
+  const egrPeriodoS = EGRESOS.filter(e=>e.moneda==='S/'&&filtrarMes(e.fecha)).reduce((a,e)=>a+(parseFloat(e.monto)||0),0);
+  const egrPeriodoU = EGRESOS.filter(e=>e.moneda==='USD'&&filtrarMes(e.fecha)).reduce((a,e)=>a+(parseFloat(e.monto)||0),0);
+  const egrPeriodoC = EGRESOS.filter(e=>e.moneda==='COP'&&filtrarMes(e.fecha)).reduce((a,e)=>a+(parseFloat(e.monto)||0),0);
+  const cajaPeriodoS = ingPeriodoS - egrPeriodoS;
+  const cajaPeriodoU = ingPeriodoU - egrPeriodoU;
+  const cajaPeriodoC = ingPeriodoC - egrPeriodoC;
 
   document.getElementById('metrics-row').innerHTML = `
     <div class="metric metric-accent">
@@ -857,13 +866,13 @@ function renderDashboard() {
     </div>
     <div class="metric" style="border-top:3px solid #28a745">
       <div class="metric-label">📥 Ingresos — ${labelPeriodo}</div>
-      <div class="metric-val" style="font-size:17px;color:#155724">S/ ${(hasMesFiltro?ingMesS:totalIngS).toLocaleString()}</div>
-      <div class="metric-sub">${(hasMesFiltro?ingMesU:totalIngU)>0?`USD ${(hasMesFiltro?ingMesU:totalIngU).toLocaleString()} · `:''}${(hasMesFiltro?ingMesC:totalIngC)>0?`COP ${(hasMesFiltro?ingMesC:totalIngC).toLocaleString()}`:''}</div>
+      <div class="metric-val" style="font-size:17px;color:#155724">S/ ${ingPeriodoS.toLocaleString()}</div>
+      <div class="metric-sub">${ingPeriodoU>0?`USD ${ingPeriodoU.toLocaleString()} · `:''}${ingPeriodoC>0?`COP ${ingPeriodoC.toLocaleString()}`:''}</div>
     </div>
     <div class="metric" style="border-top:3px solid #dc3545">
       <div class="metric-label">📤 Egresos — ${labelPeriodo}</div>
-      <div class="metric-val" style="font-size:17px;color:#721c24">S/ ${egrMesS.toLocaleString()}</div>
-      <div class="metric-sub">${egrMesU>0?`USD ${egrMesU.toLocaleString()}`:''}</div>
+      <div class="metric-val" style="font-size:17px;color:#721c24">S/ ${egrPeriodoS.toLocaleString()}</div>
+      <div class="metric-sub">${egrPeriodoU>0?`USD ${egrPeriodoU.toLocaleString()}`:''}</div>
     </div>
     <div class="metric" style="border-top:3px solid var(--vino)">
       <div class="metric-label">💰 Caja neta — ${labelPeriodo}</div>
