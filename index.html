@@ -642,12 +642,21 @@ async function apiGet(action, params = {}) {
 
 async function apiPost(action, data = {}) {
   // Use GET with encoded data to avoid CORS issues with Apps Script
-  const encoded = encodeURIComponent(JSON.stringify(data.data || {}));
+  const payload = data.data || {};
+  const encoded = encodeURIComponent(JSON.stringify(payload));
   const params = new URLSearchParams({ action });
   if (data.data) params.set('data', encoded);
-  if (data.id) params.set('id', data.id);
-  const res = await fetch(`${API}?${params.toString()}`);
-  return res.json();
+  if (data.id) params.set('id', String(data.id));
+  const url = `${API}?${params.toString()}`;
+  // If URL is too long (>2000 chars), split link out
+  if (url.length > 7000) {
+    console.warn('URL muy larga:', url.length, 'chars');
+  }
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const json = await res.json();
+  if (!json.ok && json.error) console.error('API error:', json.error);
+  return json;
 }
 
 async function recargar() {
@@ -1031,7 +1040,7 @@ async function marcarPagado(clienteId, cicloNum, pagoId) {
 }
 
 function abrirComprobante(clienteId, pagoId) {
-  _compCtx = { clienteId: parseInt(clienteId), pagoId };
+  _compCtx = { clienteId: String(clienteId), pagoId };
   const c = DB.find(x => String(x.id) === String(clienteId));
   const p = (c?.ciclos || []).flatMap(ci => ci.pagos || []).find(x => x.id === pagoId);
   document.getElementById('modal-comp-info').innerHTML = `<i class="ti ti-info-circle"></i> <strong>${p?.concepto}</strong> · ${c?.moneda} ${parseFloat(p?.monto).toLocaleString()} · ${fmtDate(p?.fecha)}`;
@@ -1043,7 +1052,8 @@ async function guardarComprobante() {
   const nombre = document.getElementById('comp-nombre').value.trim();
   const link = document.getElementById('comp-link').value.trim();
   if (!nombre || !link) { alert('Nombre y link son obligatorios'); return; }
-  const c = DB.find(x => String(x.id) === String(_compCtx.clienteId)); if (!c) return;
+  const c = DB.find(x => String(x.id) === String(_compCtx.clienteId));
+  if (!c) { alert('Cliente no encontrado. Recarga la página.'); return; }
   let pagoData = null;
   let cicloNum = null;
   for (const ci of (c.ciclos || [])) {
@@ -1053,6 +1063,7 @@ async function guardarComprobante() {
   if (!pagoData) { alert('No se encontró el pago. Por favor recarga la página.'); return; }
   closeModal('modal-comp');
   setSyncState('syncing');
+  try {
   await apiPost('updatePago', { data: { 
     id: pagoData.id, 
     clienteId: String(_compCtx.clienteId), 
@@ -1066,6 +1077,12 @@ async function guardarComprobante() {
     comprobanteNotas: document.getElementById('comp-notas').value 
   }});
   setSyncState('ok');
+  } catch(err) {
+    setSyncState('error');
+    alert('Error al guardar el comprobante. Intenta de nuevo.');
+    console.error('Error comprobante:', err);
+    return;
+  }
   if (document.getElementById('view-detalle').classList.contains('active')) verDetalle(_compCtx.clienteId);
   renderPagos();
 }
