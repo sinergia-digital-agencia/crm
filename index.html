@@ -221,8 +221,8 @@ button{cursor:pointer;font-family:var(--font)}
     <div class="page-header">
       <h2>Dashboard</h2>
       <div style="display:flex;gap:8px;align-items:center">
-        <select class="search-bar" id="dash-mes" onchange="renderDashboard()" style="width:auto">
-          <option value="">Este mes</option>
+        <select class="search-bar" id="dash-mes" onchange="dashFiltroMes=this.value;renderDashboard()" style="width:auto">
+          <option value="">Todo el histórico</option>
           <option value="01">Enero</option><option value="02">Febrero</option>
           <option value="03">Marzo</option><option value="04">Abril</option>
           <option value="05">Mayo</option><option value="06">Junio</option>
@@ -230,7 +230,7 @@ button{cursor:pointer;font-family:var(--font)}
           <option value="09">Septiembre</option><option value="10">Octubre</option>
           <option value="11">Noviembre</option><option value="12">Diciembre</option>
         </select>
-        <select class="search-bar" id="dash-anio" onchange="renderDashboard()" style="width:auto">
+        <select class="search-bar" id="dash-anio" onchange="dashFiltroAnio=this.value;renderDashboard()" style="width:auto">
           <option value="2025">2025</option>
           <option value="2026" selected>2026</option>
           <option value="2027">2027</option>
@@ -678,6 +678,8 @@ button{cursor:pointer;font-family:var(--font)}
 <script>
 const API = 'https://script.google.com/macros/s/AKfycbzupkms2x22Qi0DsbGLW1adf0ltpP6-09v1SVWbs3PnOxIPwiaErhHwDznTyWoRI8iHWA/exec';
 let DB = [];
+let dashFiltroMes = '';
+let dashFiltroAnio = '2026';
 let editingId = null;
 let _docClienteId = null;
 let _compCtx = null;
@@ -789,7 +791,7 @@ function renderDashboard() {
   const allPagos = DB.flatMap(c => (c.ciclos || []).flatMap(ci => ci.pagos || []));
   const pendientes = DB.flatMap(c => { const np = nextPago(c); return np ? [{ ...np, cliente: c.nombre, moneda: c.moneda, clienteId: c.id }] : []; });
   const venc30 = pendientes.filter(p => {
-    if (document.getElementById('dash-mes')?.value) {
+    if (dashFiltroMes) {
       // Si hay mes seleccionado, mostrar pagos de ese mes
       return (p.fecha||'').startsWith(mesActual);
     }
@@ -808,10 +810,9 @@ function renderDashboard() {
   const pS=suma('S/',false), pU=suma('USD',false), pC=suma('COP',false);
 
   // Mes seleccionado en el filtro
-  const anioSel = document.getElementById('dash-anio')?.value || today().substring(0,4);
-  const mesSel = document.getElementById('dash-mes')?.value || today().substring(5,7);
-  const mesActual = anioSel + '-' + mesSel;
-  // mesActual solo se usa para filtrar cuando hasMesFiltro=true
+  const anioSel = dashFiltroAnio || today().substring(0,4);
+  const mesSel = dashFiltroMes;
+  const mesActual = anioSel + '-' + (mesSel || today().substring(5,7));
   const cobradoMesS = DB.flatMap(c=>(c.ciclos||[]).flatMap(ci=>(ci.pagos||[]).filter(p=>p.estado==='Pagado'&&c.moneda==='S/'&&(p.fecha||'').startsWith(mesActual)).map(p=>parseFloat(p.monto)||0))).reduce((a,b)=>a+b,0)
     + INGRESOS_MANUAL.filter(i=>i.moneda==='S/'&&(i.fecha||'').startsWith(mesActual)).reduce((a,i)=>a+(parseFloat(i.monto)||0),0);
   const cobradoMesU = DB.flatMap(c=>(c.ciclos||[]).flatMap(ci=>(ci.pagos||[]).filter(p=>p.estado==='Pagado'&&c.moneda==='USD'&&(p.fecha||'').startsWith(mesActual)).map(p=>parseFloat(p.monto)||0))).reduce((a,b)=>a+b,0)
@@ -824,7 +825,7 @@ function renderDashboard() {
   const cajaMesS = cobradoMesS - egresosMesS;
 
   const mesesNombres2 = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  const mesNombre = mesesNombres2[parseInt(mesActual.split('-')[1])-1] + ' ' + anioSel;
+  const mesNombre = hasMesFiltro ? (mesesNombres2[parseInt(mesActual.split('-')[1])-1] + ' ' + anioSel) : 'Total histórico';
 
   // ── Totales históricos completos ─────────────────────────────────────────
   const totalIngS  = cS + INGRESOS_MANUAL.filter(i=>i.moneda==='S/').reduce((a,i)=>a+(parseFloat(i.monto)||0),0);
@@ -839,8 +840,7 @@ function renderDashboard() {
 
   // ── Calcular para el periodo seleccionado ────────────────────────────────
   // mesActual ya tiene YYYY-MM del selector (o mes actual si no hay selección)
-  const mesFiltroVal = document.getElementById('dash-mes')?.value || '';
-  const hasMesFiltro = mesFiltroVal !== '';
+  const hasMesFiltro = dashFiltroMes !== '';
   const labelPeriodo = mesNombre;
 
   const filtrarMes = (fecha) => !hasMesFiltro || (fecha||'').startsWith(mesActual);
