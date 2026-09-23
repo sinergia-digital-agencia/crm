@@ -794,6 +794,11 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
 function renderDashboard() {
+  // Leer siempre directo del DOM para sincronizar con lo que muestra el selector
+  const _mesSel = document.getElementById('dash-mes');
+  const _anioSel = document.getElementById('dash-anio');
+  if (_mesSel) dashFiltroMes = _mesSel.value;
+  if (_anioSel) dashFiltroAnio = _anioSel.value || '2026';
   const hasMesFiltro = dashFiltroMes !== '';
   const activos = DB.filter(c => c.estado === 'Activo');
   const allPagos = DB.flatMap(c => (c.ciclos || []).flatMap(ci => ci.pagos || []));
