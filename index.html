@@ -720,7 +720,12 @@ async function apiPost(action, data = {}) {
 async function recargar() {
   setSyncState('syncing');
   try {
-    const r = await apiGet('getAll');
+    // Timeout de 30 segundos
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+    const res = await fetch(`${API}?action=getAll`, { signal: controller.signal });
+    clearTimeout(timeout);
+    const r = await res.json();
     if (r.ok) {
       DB = r.clientes || [];
       PROSPECTOS = r.prospectos || [];
@@ -729,16 +734,18 @@ async function recargar() {
       INGRESOS_MANUAL = r.ingresosManual || [];
     }
     setSyncState('ok');
-    renderDashboard();
-    renderAlertas();
-    if (document.getElementById('view-clientes').classList.contains('active')) renderClientes();
-    if (document.getElementById('view-pagos').classList.contains('active')) renderPagos();
-    if (document.getElementById('view-prospectos').classList.contains('active')) renderProspectos();
-    if (document.getElementById('view-finanzas').classList.contains('active')) renderFinanzas();
   } catch (e) {
     setSyncState('error');
-    console.error(e);
+    console.error('Error cargando datos:', e);
+    // Mostrar igual aunque haya error de red
   }
+  // Renderizar siempre, con o sin datos nuevos
+  try { renderDashboard(); } catch(e) { console.error('renderDashboard:', e); }
+  try { renderAlertas(); } catch(e) { console.error('renderAlertas:', e); }
+  if (document.getElementById('view-clientes').classList.contains('active')) { try { renderClientes(); } catch(e) {} }
+  if (document.getElementById('view-pagos').classList.contains('active')) { try { renderPagos(); } catch(e) {} }
+  if (document.getElementById('view-prospectos').classList.contains('active')) { try { renderProspectos(); } catch(e) {} }
+  if (document.getElementById('view-finanzas').classList.contains('active')) { try { renderFinanzas(); } catch(e) {} }
 }
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
@@ -787,12 +794,12 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
 function renderDashboard() {
+  const hasMesFiltro = dashFiltroMes !== '';
   const activos = DB.filter(c => c.estado === 'Activo');
   const allPagos = DB.flatMap(c => (c.ciclos || []).flatMap(ci => ci.pagos || []));
   const pendientes = DB.flatMap(c => { const np = nextPago(c); return np ? [{ ...np, cliente: c.nombre, moneda: c.moneda, clienteId: c.id }] : []; });
   const venc30 = pendientes.filter(p => {
-    if (dashFiltroMes) {
-      // Si hay mes seleccionado, mostrar pagos de ese mes
+    if (dashFiltroMes !== '') {
       return (p.fecha||'').startsWith(mesActual);
     }
     const d = diffDays(p.fecha);
@@ -813,8 +820,7 @@ function renderDashboard() {
   const anioSel = dashFiltroAnio || today().substring(0,4);
   const mesSel = dashFiltroMes;
   const mesActual = anioSel + '-' + (mesSel || today().substring(5,7));
-  const hasMesFiltro = dashFiltroMes !== '';
-  const cobradoMesS = DB.flatMap(c=>(c.ciclos||[]).flatMap(ci=>(ci.pagos||[]).filter(p=>p.estado==='Pagado'&&c.moneda==='S/'&&(p.fecha||'').startsWith(mesActual)).map(p=>parseFloat(p.monto)||0))).reduce((a,b)=>a+b,0)
+    const cobradoMesS = DB.flatMap(c=>(c.ciclos||[]).flatMap(ci=>(ci.pagos||[]).filter(p=>p.estado==='Pagado'&&c.moneda==='S/'&&(p.fecha||'').startsWith(mesActual)).map(p=>parseFloat(p.monto)||0))).reduce((a,b)=>a+b,0)
     + INGRESOS_MANUAL.filter(i=>i.moneda==='S/'&&(i.fecha||'').startsWith(mesActual)).reduce((a,i)=>a+(parseFloat(i.monto)||0),0);
   const cobradoMesU = DB.flatMap(c=>(c.ciclos||[]).flatMap(ci=>(ci.pagos||[]).filter(p=>p.estado==='Pagado'&&c.moneda==='USD'&&(p.fecha||'').startsWith(mesActual)).map(p=>parseFloat(p.monto)||0))).reduce((a,b)=>a+b,0)
     + INGRESOS_MANUAL.filter(i=>i.moneda==='USD'&&(i.fecha||'').startsWith(mesActual)).reduce((a,i)=>a+(parseFloat(i.monto)||0),0);
