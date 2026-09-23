@@ -627,15 +627,28 @@ button{cursor:pointer;font-family:var(--font)}
 
 <!-- MODAL: comprobante -->
 <div class="overlay" id="modal-comp">
-  <div class="modal">
+  <div class="modal" style="max-width:500px">
     <div class="modal-header">
-      <span class="modal-title">Adjuntar comprobante</span>
+      <span class="modal-title">Comprobantes de pago</span>
       <button class="btn btn-icon btn-sm" onclick="closeModal('modal-comp')"><i class="ti ti-x"></i></button>
     </div>
     <div class="alert alert-info" id="modal-comp-info" style="margin-bottom:14px"></div>
-    <div class="form-group" style="margin-bottom:10px"><label>Nombre del comprobante</label><input id="comp-nombre" placeholder="Ej: Transferencia BCP — 04 mayo 2025"></div>
-    <div class="form-group" style="margin-bottom:10px"><label>Link (Google Drive / Dropbox)</label><input id="comp-link" placeholder="https://drive.google.com/..."></div>
-    <div class="form-group" style="margin-bottom:18px"><label>Notas (opcional)</label><input id="comp-notas" placeholder="Ej: Pagó via PayPal, comisión 5.4%"></div>
+    
+    <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">Comprobante 1</div>
+    <div class="form-group" style="margin-bottom:8px"><label>Nombre</label><input id="comp-nombre" placeholder="Ej: Transferencia BCP — parte 1"></div>
+    <div class="form-group" style="margin-bottom:8px"><label>Link</label><input id="comp-link" placeholder="https://drive.google.com/..."></div>
+    <div class="form-group" style="margin-bottom:14px"><label>Notas</label><input id="comp-notas" placeholder="Ej: Pagó via PayPal"></div>
+
+    <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;padding-top:8px;border-top:1px solid var(--border)">Comprobante 2 <span style="font-weight:400;color:var(--text3)">(opcional)</span></div>
+    <div class="form-group" style="margin-bottom:8px"><label>Nombre</label><input id="comp-nombre2" placeholder="Ej: Transferencia BCP — parte 2"></div>
+    <div class="form-group" style="margin-bottom:8px"><label>Link</label><input id="comp-link2" placeholder="https://drive.google.com/..."></div>
+    <div class="form-group" style="margin-bottom:14px"><label>Notas</label><input id="comp-notas2" placeholder="Opcional"></div>
+
+    <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;padding-top:8px;border-top:1px solid var(--border)">Comprobante 3 <span style="font-weight:400;color:var(--text3)">(opcional)</span></div>
+    <div class="form-group" style="margin-bottom:8px"><label>Nombre</label><input id="comp-nombre3" placeholder="Ej: Transferencia Yape — parte 3"></div>
+    <div class="form-group" style="margin-bottom:8px"><label>Link</label><input id="comp-link3" placeholder="https://drive.google.com/..."></div>
+    <div class="form-group" style="margin-bottom:18px"><label>Notas</label><input id="comp-notas3" placeholder="Opcional"></div>
+
     <div class="btn-group" style="justify-content:flex-end">
       <button class="btn btn-sm" onclick="closeModal('modal-comp')">Cancelar</button>
       <button class="btn btn-primary btn-sm" onclick="guardarComprobante()"><i class="ti ti-device-floppy"></i>Guardar</button>
@@ -966,14 +979,16 @@ function verDetalle(id) {
           <div>
             <div style="font-weight:600;font-size:13px">${p.concepto}</div>
             <div style="font-size:11px;color:var(--text3);margin-top:2px">${fmtDate(p.fecha)}</div>
-            ${p.comprobante ? `<a href="${p.comprobante.link}" target="_blank" style="font-size:11px;color:var(--vino);display:inline-flex;align-items:center;gap:3px;margin-top:4px"><i class="ti ti-external-link" style="font-size:11px"></i>${p.comprobante.nombre}</a>` : ''}
+            ${(p.comprobantes||( p.comprobante?[p.comprobante]:[])).map(cp=>
+              `<a href="${cp.link}" target="_blank" style="font-size:11px;color:var(--vino);display:inline-flex;align-items:center;gap:3px;margin-top:3px"><i class="ti ti-external-link" style="font-size:11px"></i>${cp.nombre}</a>`
+            ).join('')}
           </div>
           <div style="text-align:right;flex-shrink:0">
             <div style="font-weight:700;font-size:14px">${c.moneda} ${parseFloat(p.monto).toLocaleString()}</div>
             <div style="display:flex;gap:6px;align-items:center;justify-content:flex-end;margin-top:5px;flex-wrap:wrap">
               <span class="badge ${p.estado === 'Pagado' ? 'badge-ok' : 'badge-warn'}">${p.estado}</span>
               ${p.estado === 'Pendiente' ? `<button class="btn btn-sm" style="padding:3px 9px;font-size:11px" onclick="marcarPagado('${id}',${ci.num},'${p.id}')">Marcar pagado</button>` : ''}
-              ${!p.comprobante ? `<button class="btn btn-sm" style="padding:3px 9px;font-size:11px" onclick="abrirComprobante('${id}','${p.id}')"><i class="ti ti-link" style="font-size:11px"></i>Comprobante</button>` : ''}
+              <button class="btn btn-sm" style="padding:3px 9px;font-size:11px" onclick="abrirComprobante('${id}','${p.id}')"><i class="ti ti-link" style="font-size:11px"></i>${(p.comprobantes&&p.comprobantes.length>0)||p.comprobante?'Ver/editar comprobantes':'Comprobante'}</button>
             </div>
           </div>
         </div>`).join('')}
@@ -1072,21 +1087,36 @@ function abrirComprobante(clienteId, pagoId) {
   const c = DB.find(x => String(x.id) === String(clienteId));
   const p = (c?.ciclos || []).flatMap(ci => ci.pagos || []).find(x => x.id === pagoId);
   document.getElementById('modal-comp-info').innerHTML = `<i class="ti ti-info-circle"></i> <strong>${p?.concepto}</strong> · ${c?.moneda} ${parseFloat(p?.monto).toLocaleString()} · ${fmtDate(p?.fecha)}`;
-  ['comp-nombre', 'comp-link', 'comp-notas'].forEach(id => document.getElementById(id).value = '');
+  // Cargar comprobantes existentes en los 3 slots
+  const comps = p?.comprobantes || (p?.comprobante ? [p.comprobante] : []);
+  [['comp-nombre','comp-link','comp-notas'],['comp-nombre2','comp-link2','comp-notas2'],['comp-nombre3','comp-link3','comp-notas3']].forEach((ids,i) => {
+    const cp = comps[i] || {};
+    ids.forEach((id,j) => { const el=document.getElementById(id); if(el) el.value = [cp.nombre,cp.link,cp.notas][j]||''; });
+  });
   openModal('modal-comp');
 }
 
 async function guardarComprobante() {
   const nombre = document.getElementById('comp-nombre').value.trim();
   const link = document.getElementById('comp-link').value.trim();
-  if (!nombre || !link) { alert('Nombre y link son obligatorios'); return; }
+  if (!nombre || !link) { alert('El primer comprobante necesita nombre y link'); return; }
+  
+  // Recopilar los 3 comprobantes
+  const comprobantes = [];
+  [['' ,'',''],['2','2','2'],['3','3','3']].forEach(([suf]) => {
+    const n = document.getElementById('comp-nombre'+(suf||'')).value.trim();
+    const l = document.getElementById('comp-link'+(suf||'')).value.trim();
+    const nt = document.getElementById('comp-notas'+(suf||'')).value.trim();
+    if (n || l) comprobantes.push({ nombre: n, link: l, notas: nt, fecha: today() });
+  });
+  
   const c = DB.find(x => String(x.id) === String(_compCtx.clienteId));
   if (!c) { alert('Cliente no encontrado. Recarga la página.'); return; }
   let pagoData = null;
   let cicloNum = null;
   for (const ci of (c.ciclos || [])) {
     const p = (ci.pagos || []).find(x => x.id === _compCtx.pagoId);
-    if (p) { p.comprobante = { nombre, link, notas: document.getElementById('comp-notas').value, fecha: today() }; pagoData = p; cicloNum = ci.num; break; }
+    if (p) { p.comprobantes = comprobantes; p.comprobante = comprobantes[0]||null; pagoData = p; cicloNum = ci.num; break; }
   }
   if (!pagoData) { alert('No se encontró el pago. Por favor recarga la página.'); return; }
   closeModal('modal-comp');
@@ -1100,9 +1130,9 @@ async function guardarComprobante() {
     concepto: pagoData.concepto, 
     monto: pagoData.monto, 
     estado: pagoData.estado, 
-    comprobanteNombre: nombre, 
-    comprobanteLink: link, 
-    comprobanteNotas: document.getElementById('comp-notas').value 
+    comprobanteNombre: comprobantes.map(c=>c.nombre).join('||'), 
+    comprobanteLink: comprobantes.map(c=>c.link).join('||'), 
+    comprobanteNotas: comprobantes.map(c=>c.notas).join('||') 
   }});
   setSyncState('ok');
   } catch(err) {
