@@ -224,6 +224,7 @@ button{cursor:pointer;font-family:var(--font)}
       <div class="card"><div class="section-title">Vencimientos próximos — 30 días</div><div id="upcoming-list"><div class="loading"><div class="spinner"></div></div></div></div>
       <div class="card"><div class="section-title">Clientes activos</div><div id="active-clients-list"><div class="loading"><div class="spinner"></div></div></div></div>
       <div class="card" style="grid-column:1/-1"><div class="section-title">Ingresos por mes (últimos 6 meses)</div><div id="mes-resumen"><div class="loading"><div class="spinner"></div></div></div></div>
+      <div class="card" style="grid-column:1/-1"><div class="section-title">Balance general — Caja Sinergia Digital</div><div id="dashboard-balance"><div class="loading"><div class="spinner"></div></div></div></div>
     </div>
   </div>
 
@@ -757,6 +758,44 @@ function renderDashboard() {
 
   // ── INGRESOS POR MES ──────────────────────────────────────────────────────
   const mesesNombres = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  // ── RESUMEN FINANCIERO EN DASHBOARD ─────────────────────────────────────
+  const resumenEl = document.getElementById('dashboard-balance');
+  if (resumenEl) {
+    const monedas = ['S/', 'USD', 'COP'];
+    const syms = {'S/':'S/', 'USD':'USD', 'COP':'COP'};
+    const balances = monedas.map(mon => {
+      const ingCli = DB.flatMap(c => (c.ciclos||[]).flatMap(ci =>
+        (ci.pagos||[]).filter(p => p.estado==='Pagado' && c.moneda===mon)
+        .map(p => parseFloat(p.monto)||0)
+      )).reduce((a,b)=>a+b,0);
+      const ingExtra = INGRESOS_MANUAL.filter(i => i.moneda===mon)
+        .reduce((a,i)=>a+(parseFloat(i.monto)||0),0);
+      const ing = ingCli + ingExtra;
+      const egr = EGRESOS.filter(e => e.moneda===mon)
+        .reduce((a,e)=>a+(parseFloat(e.monto)||0),0);
+      const caja = ing - egr;
+      const porCobrar = DB.flatMap(c => (c.ciclos||[]).flatMap(ci =>
+        (ci.pagos||[]).filter(p => p.estado==='Pendiente' && c.moneda===mon)
+        .map(p => parseFloat(p.monto)||0)
+      )).reduce((a,b)=>a+b,0);
+      return { mon, ing, egr, caja, porCobrar };
+    }).filter(b => b.ing > 0 || b.egr > 0 || b.porCobrar > 0);
+
+    resumenEl.innerHTML = balances.length === 0
+      ? '<div style="color:var(--text3);font-size:13px">Sin movimientos registrados</div>'
+      : balances.map(b => `
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+          <div><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">Ingresos ${b.mon}</div>
+            <div style="font-size:16px;font-weight:700;color:#155724">${b.mon} ${b.ing.toLocaleString()}</div></div>
+          <div><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">Egresos ${b.mon}</div>
+            <div style="font-size:16px;font-weight:700;color:#721c24">${b.mon} ${b.egr.toLocaleString()}</div></div>
+          <div><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">💰 Caja ${b.mon}</div>
+            <div style="font-size:16px;font-weight:700;color:${b.caja>=0?'var(--vino)':'#dc3545'}">${b.mon} ${b.caja.toLocaleString()}</div></div>
+          <div><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">Por cobrar ${b.mon}</div>
+            <div style="font-size:16px;font-weight:700;color:#856404">${b.mon} ${b.porCobrar.toLocaleString()}</div></div>
+        </div>`).join('');
+  }
+
   const ingresosPorMes = {};
   DB.forEach(c => {
     (c.ciclos||[]).forEach(ci => {
