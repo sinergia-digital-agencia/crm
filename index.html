@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>CRM — Sinergia Digital</title>
 <meta name="description" content="CRM interno de Sinergia Digital">
 <link rel="manifest" href="manifest.json">
@@ -159,9 +159,9 @@ button{cursor:pointer;font-family:var(--font)}
 .search-bar:focus{outline:none;border-color:var(--vino)}
 
 /* MODAL */
-.overlay{display:none;position:fixed;inset:0;background:rgba(89,29,51,.4);z-index:200;align-items:center;justify-content:center;padding:16px}
+.overlay{display:none;position:fixed;inset:0;background:rgba(89,29,51,.4);z-index:200;align-items:center;justify-content:center;padding:16px;overflow-y:auto}
 .overlay.open{display:flex}
-.modal{background:var(--surface);border-radius:var(--radius-lg);padding:22px;width:100%;max-width:440px;box-shadow:0 20px 60px rgba(89,29,51,.2);border:1px solid var(--border)}
+.modal{background:var(--surface);border-radius:var(--radius-lg);padding:22px;width:100%;max-width:440px;box-shadow:0 20px 60px rgba(89,29,51,.2);border:1px solid var(--border);max-height:90vh;overflow-y:auto;padding-bottom:max(22px,env(safe-area-inset-bottom))}
 .modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
 .modal-title{font-size:15px;font-weight:700;color:var(--text)}
 
@@ -175,13 +175,33 @@ button{cursor:pointer;font-family:var(--font)}
 .client-row:hover{border-color:var(--vino-border);background:var(--vino-light)}
 
 /* MOBILE */
-@media(max-width:480px){
-  .content{padding:12px}
-  .topbar{padding:0 14px}
-  .nav{padding:0 10px}
-  .tbl th,.tbl td{padding:9px 10px}
-  .card{padding:14px}
+@media(max-width:640px){
+  .content{padding:10px}
+  .topbar{padding:0 12px;height:48px}
+  .nav{padding:0 8px}
+  .nav-btn{padding:10px 10px;font-size:12px}
+  .tbl th,.tbl td{padding:8px 8px;font-size:12px}
+  .card{padding:12px}
   .hide-mobile{display:none}
+  .card-grid{grid-template-columns:1fr !important}
+  .form-row,.form-row-3{grid-template-columns:1fr !important}
+  .metrics{grid-template-columns:1fr 1fr !important}
+  .page-header{flex-direction:column;align-items:flex-start}
+  .page-header h2{font-size:16px}
+  .btn-group{flex-wrap:wrap}
+  /* Modal móvil - scroll completo */
+  .overlay{align-items:flex-end;padding:0}
+  .modal{border-radius:var(--radius-lg) var(--radius-lg) 0 0;max-height:92vh;overflow-y:auto;width:100%;max-width:100%}
+  /* Tabla scroll horizontal */
+  .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  /* Botones más grandes en móvil */
+  .btn{padding:10px 16px;font-size:14px}
+  .btn-sm{padding:8px 12px;font-size:13px}
+  /* Input más grandes */
+  .form-group input,.form-group select,.form-group textarea{padding:10px 12px;font-size:16px}
+  /* Fix topbar en móvil */
+  .topbar-sub{display:none}
+  .topbar-date{display:none}
 }
 </style>
 </head>
@@ -1945,6 +1965,18 @@ function renderProspectos() {
         '</div></td></tr>'
       ).join('');
 }
+
+// Fix móvil: scroll al campo activo cuando aparece teclado
+document.addEventListener('focusin', function(e) {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+    setTimeout(() => {
+      e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
+  }
+});
+
+// Fix móvil: prevenir zoom en inputs (iOS)
+document.addEventListener('touchstart', function(){}, {passive: true});
 
 document.getElementById('today-label').textContent = new Date().toLocaleDateString('es-PE', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
 toggleModalidad();
