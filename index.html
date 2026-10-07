@@ -622,6 +622,43 @@ button{cursor:pointer;font-family:var(--font)}
   </div>
 </div>
 
+<!-- MODAL: renovar -->
+<div class="overlay" id="modal-renovar">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Renovar contrato</span>
+      <button class="btn btn-icon btn-sm" onclick="closeModal('modal-renovar')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="alert alert-info" id="modal-renovar-info" style="margin-bottom:14px"></div>
+    <div class="section-title">Condiciones del nuevo ciclo</div>
+    <div class="form-row">
+      <div class="form-group"><label>Monto mensual</label><input id="ren-monto" type="number" placeholder="0"></div>
+      <div class="form-group"><label>Moneda</label>
+        <select id="ren-moneda"><option>S/</option><option>USD</option><option>COP</option></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Modalidad</label>
+        <select id="ren-modalidad">
+          <option value="mensual">Mensual adelantado</option>
+          <option value="3meses">3 meses (50/50)</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Fecha inicio nuevo ciclo</label>
+        <input id="ren-inicio" type="date">
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:18px">
+      <label>Notas del nuevo ciclo (opcional)</label>
+      <textarea id="ren-notas" rows="2" placeholder="Ej: Se agregan 10 videos adicionales al plan anterior..."></textarea>
+    </div>
+    <div class="btn-group" style="justify-content:flex-end">
+      <button class="btn btn-sm" onclick="closeModal('modal-renovar')">Cancelar</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmarRenovacion()"><i class="ti ti-refresh"></i>Confirmar renovación</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: documento -->
 <div class="overlay" id="modal-doc">
   <div class="modal">
@@ -1452,26 +1489,34 @@ async function renovarCliente() {
   const c = DB.find(x => String(x.id) === String(id)); if (!c) return;
   const last = (c.ciclos || [])[c.ciclos.length - 1];
   if (!last) { alert('No hay ciclos previos'); return; }
-  const newStart = new Date(parseDate(last.fin || last.inicio)); newStart.setDate(newStart.getDate() + 1);
-  const ns = newStart.toISOString().split('T')[0];
+  const newStart = parseDate(nuevaFechaInicio);
+  const ns = nuevaFechaInicio;
   let fin, pagos;
-  if (c.modalidad === '3meses') {
+  if (nuevaModalidad === '3meses') {
     const fd = new Date(newStart); fd.setMonth(fd.getMonth() + 3); fd.setDate(fd.getDate() - 1);
     const fp2 = new Date(newStart); fp2.setDate(fp2.getDate() + 45);
     fin = fd.toISOString().split('T')[0];
     pagos = [
-      { id: uid(), fecha: ns, concepto: `Pago 1 — Ciclo ${last.num + 1}`, monto: c.monto, estado: 'Pendiente', comprobante: null },
-      { id: uid(), fecha: fp2.toISOString().split('T')[0], concepto: `Pago 2 — Ciclo ${last.num + 1}`, monto: c.monto * 2, estado: 'Pendiente', comprobante: null }
+      { id: uid(), fecha: ns, concepto: `Pago 1 — Ciclo ${last.num + 1}`, monto: nuevoMonto, estado: 'Pendiente', comprobante: null, comprobantes: [] },
+      { id: uid(), fecha: fp2.toISOString().split('T')[0], concepto: `Pago 2 — Ciclo ${last.num + 1}`, monto: nuevoMonto * 2, estado: 'Pendiente', comprobante: null, comprobantes: [] }
     ];
   } else {
     const fd = new Date(newStart); fd.setMonth(fd.getMonth() + 1); fd.setDate(fd.getDate() - 1);
     fin = fd.toISOString().split('T')[0];
-    pagos = [{ id: uid(), fecha: ns, concepto: `Mes ${last.num + 1}`, monto: c.monto, estado: 'Pendiente', comprobante: null }];
+    pagos = [{ id: uid(), fecha: ns, concepto: `Mes ${last.num + 1}`, monto: nuevoMonto, estado: 'Pendiente', comprobante: null, comprobantes: [] }];
   }
+
+  // Actualizar monto y modalidad del cliente si cambiaron
+  c.monto = nuevoMonto;
+  c.moneda = nuevaMoneda;
+  c.modalidad = nuevaModalidad;
+  if (notasRen) c.notas = (c.notas ? c.notas + ' | ' : '') + notasRen;
+
   const newCiclo = { num: last.num + 1, inicio: ns, fin, pagos };
   c.ciclos.push(newCiclo);
+
+  closeModal('modal-renovar');
   setSyncState('syncing');
-  // Save ciclo metadata and new pagos
   await apiPost('saveCliente', { data: { ...c } });
   for (const p of pagos) {
     await apiPost('savePago', { data: {
@@ -1483,7 +1528,7 @@ async function renovarCliente() {
   }
   setSyncState('ok');
   verDetalle(id); renderAlertas();
-  alert(`Ciclo ${newCiclo.num} creado exitosamente.`);
+  alert(`✅ Ciclo ${newCiclo.num} creado — ${nuevaMoneda} ${nuevoMonto.toLocaleString()}/mes`);
 }
 
 async function guardarCliente() {
