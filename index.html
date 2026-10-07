@@ -1486,6 +1486,294 @@ function editarCliente() {
 
 async function renovarCliente() {
   const id = document.getElementById('btn-renovar').getAttribute('data-id');
+  const c = DB.find(x => String(x.id) === String(id));
+  if (!c) { alert('Cliente no encontrado'); return; }
+  if (!c.ciclos || c.ciclos.length === 0) {
+    c.ciclos = [{ num: 1, inicio: c.inicio || today(), fin: '', pagos: [] }];
+  }
+  const last = c.ciclos[c.ciclos.length - 1];
+  // Calcular fecha inicio sugerida
+  let ns = today();
+  if (last.fin) {
+    const d = parseDate(last.fin);
+    d.setDate(d.getDate() + 1);
+    ns = d.toISOString().split('T')[0];
+  }
+  // Abrir modal con valores precargados
+  document.getElementById('modal-renovar-info').innerHTML =
+    '<i class="ti ti-info-circle"></i> <strong>' + c.nombre + '</strong> — Ciclo ' + last.num + ' · Monto actual: ' + c.moneda + ' ' + parseFloat(c.monto).toLocaleString();
+  document.getElementById('ren-monto').value = c.monto;
+  document.getElementById('ren-moneda').value = c.moneda;
+  document.getElementById('ren-modalidad').value = c.modalidad;
+  document.getElementById('ren-inicio').value = ns;
+  document.getElementById('ren-notas').value = '';
+  document.getElementById('modal-renovar').setAttribute('data-cliente-id', id);
+  openModal('modal-renovar');
+}
+
+async function confirmarRenovacion() {
+  const id = document.getElementById('modal-renovar').getAttribute('data-cliente-id');
+  const c = DB.find(x => String(x.id) === String(id));
+  if (!c) return;
+  const nuevoMonto = parseFloat(document.getElementById('ren-monto').value) || c.monto;
+  const nuevaMoneda = document.getElementById('ren-moneda').value;
+  const nuevaModalidad = document.getElementById('ren-modalidad').value;
+  const nuevaFechaInicio = document.getElementById('ren-inicio').value || today();
+  const notasRen = document.getElementById('ren-notas').value;
+  const last = c.ciclos[c.ciclos.length - 1];
+  const newStart = parseDate(nuevaFechaInicio);
+  const ns = nuevaFechaInicio;
+  let fin, pagos;
+  if (nuevaModalidad === '3meses') {
+    const fd = new Date(newStart); fd.setMonth(fd.getMonth()+3); fd.setDate(fd.getDate()-1);
+    const fp2 = new Date(newStart); fp2.setDate(fp2.getDate()+45);
+    fin = fd.toISOString().split('T')[0];
+    pagos = [
+      { id: uid(), fecha: ns, concepto: 'Pago 1 — Ciclo ' + (last.num+1), monto: nuevoMonto, estado: 'Pendiente', comprobante: null, comprobantes: [] },
+      { id: uid(), fecha: fp2.toISOString().split('T')[0], concepto: 'Pago 2 — Ciclo ' + (last.num+1), monto: nuevoMonto*2, estado: 'Pendiente', comprobante: null, comprobantes: [] }
+    ];
+  } else {
+    const fd = new Date(newStart); fd.setMonth(fd.getMonth()+1); fd.setDate(fd.getDate()-1);
+    fin = fd.toISOString().split('T')[0];
+    pagos = [{ id: uid(), fecha: ns, concepto: 'Mes ' + (last.num+1), monto: nuevoMonto, estado: 'Pendiente', comprobante: null, comprobantes: [] }];
+  }
+  c.monto = nuevoMonto;
+  c.moneda = nuevaMoneda;
+  c.modalidad = nuevaModalidad;
+  if (notasRen) c.notas = (c.notas ? c.notas + ' | ' : '') + notasRen;
+  const newCiclo = { num: last.num+1, inicio: ns, fin, pagos };
+  c.ciclos.push(newCiclo);
+  closeModal('modal-renovar');
+  setSyncState('syncing');
+  await apiPost('saveCliente', { data: { ...c } });
+  for (const p of pagos) {
+    await apiPost('savePago', { data: {
+      id: p.id, clienteId: id, ciclo: newCiclo.num,
+      fecha: p.fecha||today(), concepto: p.concepto,
+      monto: p.monto, estado: p.estado,
+      comprobanteNombre: '', comprobanteLink: '', comprobanteNotas: ''
+    }});
+  }
+  setSyncState('ok');
+  verDetalle(id);
+  renderAlertas();
+  alert('✅ Ciclo ' + newCiclo.num + ' creado — ' + nuevaMoneda + ' ' + nuevoMonto.toLocaleString() + '/mes');
+}
+
+async function guardarComprobante() {
+  const nombre = document.getElementById('comp-nombre').value.trim();
+  const link = document.getElementById('comp-link').value.trim();
+  if (!nombre || !link) { alert('El primer comprobante necesita nombre y link'); return; }
+  
+  // Recopilar los 3 comprobantes
+  const comprobantes = [];
+  [['' ,'',''],['2','2','2'],['3','3','3']].forEach(([suf]) => {
+    const n = document.getElementById('comp-nombre'+(suf||'')).value.trim();
+    const l = document.getElementById('comp-link'+(suf||'')).value.trim();
+    const nt = document.getElementById('comp-notas'+(suf||'')).value.trim();
+    if (n || l) comprobantes.push({ nombre: n, link: l, notas: nt, fecha: today() });
+  });
+  
+  const c = DB.find(x => String(x.id) === String(_compCtx.clienteId));
+  if (!c) { alert('Cliente no encontrado. Recarga la página.'); return; }
+  let pagoData = null;
+  let cicloNum = null;
+  for (const ci of (c.ciclos || [])) {
+    const p = (ci.pagos || []).find(x => x.id === _compCtx.pagoId);
+    if (p) { p.comprobantes = comprobantes; p.comprobante = comprobantes[0]||null; pagoData = p; cicloNum = ci.num; break; }
+  }
+  if (!pagoData) { alert('No se encontró el pago. Por favor recarga la página.'); return; }
+  closeModal('modal-comp');
+  setSyncState('syncing');
+  try {
+  await apiPost('updatePago', { data: { 
+    id: pagoData.id, 
+    clienteId: String(_compCtx.clienteId), 
+    ciclo: cicloNum, 
+    fecha: pagoData.fecha, 
+    concepto: pagoData.concepto, 
+    monto: pagoData.monto, 
+    estado: pagoData.estado, 
+    comprobanteNombre: comprobantes.map(c=>c.nombre).join('||'), 
+    comprobanteLink: comprobantes.map(c=>c.link).join('||'), 
+    comprobanteNotas: comprobantes.map(c=>c.notas).join('||') 
+  }});
+  setSyncState('ok');
+  } catch(err) {
+    setSyncState('error');
+    alert('Error al guardar el comprobante. Intenta de nuevo.');
+    console.error('Error comprobante:', err);
+    return;
+  }
+  if (document.getElementById('view-detalle').classList.contains('active')) verDetalle(_compCtx.clienteId);
+  renderPagos();
+}
+
+// ── EDITAR PAGO ───────────────────────────────────────────────────────────────
+let _editPagoCtx = null;
+
+function abrirEditarPago(clienteId, pagoId, moneda, monto, fecha) {
+  _editPagoCtx = { clienteId: String(clienteId), pagoId };
+  const c = DB.find(x => String(x.id) === String(clienteId));
+  const p = (c?.ciclos||[]).flatMap(ci=>ci.pagos||[]).find(x=>x.id===pagoId);
+  document.getElementById('modal-editar-pago-info').innerHTML =
+    `<i class="ti ti-info-circle"></i> <strong>${p?.concepto||''}</strong> · ${c?.nombre||''}`;
+  document.getElementById('ep-monto').value = monto;
+  document.getElementById('ep-moneda').value = moneda;
+  document.getElementById('ep-fecha').value = fecha || today();
+  openModal('modal-editar-pago');
+}
+
+async function guardarEditarPago() {
+  const nuevoMonto = parseFloat(document.getElementById('ep-monto').value);
+  const nuevaMoneda = document.getElementById('ep-moneda').value;
+  const nuevaFecha = document.getElementById('ep-fecha').value;
+  if (!nuevoMonto) { alert('El monto es obligatorio'); return; }
+
+  const c = DB.find(x => String(x.id) === String(_editPagoCtx.clienteId));
+  if (!c) { alert('Cliente no encontrado'); return; }
+
+  let pagoData = null;
+  let cicloNum = null;
+  for (const ci of (c.ciclos||[])) {
+    const p = (ci.pagos||[]).find(x => x.id === _editPagoCtx.pagoId);
+    if (p) {
+      p.monto = nuevoMonto;
+      p.fecha = nuevaFecha;
+      pagoData = p;
+      cicloNum = ci.num;
+      // Actualizar moneda del cliente si cambió
+      if (nuevaMoneda !== c.moneda) {
+        // Guardamos la moneda original y usamos la nueva para este pago
+        p._monedaOverride = nuevaMoneda;
+      }
+      break;
+    }
+  }
+
+  if (!pagoData) { alert('Pago no encontrado'); return; }
+  closeModal('modal-editar-pago');
+  setSyncState('syncing');
+  try {
+    await apiPost('updatePago', { data: {
+      id: pagoData.id,
+      clienteId: String(_editPagoCtx.clienteId),
+      ciclo: cicloNum,
+      fecha: nuevaFecha,
+      concepto: pagoData.concepto,
+      monto: nuevoMonto,
+      moneda: nuevaMoneda,
+      estado: pagoData.estado,
+      comprobanteNombre: pagoData.comprobante?.nombre || '',
+      comprobanteLink: pagoData.comprobante?.link || '',
+      comprobanteNotas: pagoData.comprobante?.notas || ''
+    }});
+    setSyncState('ok');
+  } catch(e) {
+    setSyncState('error');
+    alert('Error al guardar. Intenta de nuevo.');
+    return;
+  }
+  renderPagos();
+  if (document.getElementById('view-detalle').classList.contains('active')) verDetalle(_editPagoCtx.clienteId);
+  renderDashboard();
+}
+
+// ── DOCUMENTOS ────────────────────────────────────────────────────────────────
+function abrirModalDoc(clienteId) {
+  _docClienteId = clienteId;
+  ['doc-nombre', 'doc-link', 'doc-notas'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('doc-tipo').value = 'contrato';
+  const c = DB.find(x => String(x.id) === String(clienteId));
+  document.getElementById('modal-doc-title').textContent = `Agregar doc — ${c?.nombre || ''}`;
+  openModal('modal-doc');
+}
+
+async function guardarDoc() {
+  const nombre = document.getElementById('doc-nombre').value.trim();
+  const link = document.getElementById('doc-link').value.trim();
+  if (!nombre || !link) { alert('Nombre y link son obligatorios'); return; }
+  const c = DB.find(x => String(x.id) === String(_docClienteId)); if (!c) return;
+  const doc = { id: uid(), clienteId: _docClienteId, tipo: document.getElementById('doc-tipo').value, nombre, link, notas: document.getElementById('doc-notas').value, fecha: today() };
+  if (!c.docs) c.docs = [];
+  c.docs.push(doc);
+  closeModal('modal-doc');
+  setSyncState('syncing');
+  await apiPost('saveDoc', { data: doc });
+  setSyncState('ok');
+  verDetalle(_docClienteId);
+}
+
+async function eliminarDoc(clienteId, docId) {
+  if (!confirm('¿Eliminar este documento?')) return;
+  const c = DB.find(x => String(x.id) === String(clienteId)); if (!c) return;
+  c.docs = (c.docs || []).filter(d => d.id !== docId);
+  setSyncState('syncing');
+  await apiPost('deleteDoc', { id: docId });
+  setSyncState('ok');
+  verDetalle(clienteId);
+}
+
+// ── FORMULARIO NUEVO/EDITAR ───────────────────────────────────────────────────
+function toggleModalidad() {
+  const m = document.getElementById('f-modalidad').value;
+  document.getElementById('pago2-row').style.display = m === '3meses' ? 'grid' : 'none';
+  updateEstructura();
+}
+function updateEstructura() {
+  const m = document.getElementById('f-modalidad')?.value;
+  const monto = parseFloat(document.getElementById('f-monto')?.value) || 0;
+  const mon = document.getElementById('f-moneda')?.value || '';
+  const el = document.getElementById('pagos-estructura'); if (!el) return;
+  el.innerHTML = m === '3meses'
+    ? `<strong>3 meses — estructura 50/50:</strong> Pago 1 = ${mon} ${monto.toLocaleString()} al inicio · Pago 2 = ${mon} ${(monto * 2).toLocaleString()} al día 45 (mes y medio)`
+    : `<strong>Mensual adelantado:</strong> ${mon} ${monto.toLocaleString()} al inicio de cada mes`;
+}
+
+function resetForm() {
+  ['f-nombre', 'f-contacto', 'f-pais', 'f-monto', 'f-fp1', 'f-mp1', 'f-fp2', 'f-mp2', 'f-notas'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('f-estado').value = 'Activo';
+  document.getElementById('f-servicio').value = 'Meta Ads';
+  document.getElementById('f-plan').value = 'Lite';
+  document.getElementById('f-modalidad').value = '3meses';
+  document.getElementById('f-moneda').value = 'USD';
+  document.getElementById('f-inicio').value = today();
+  document.getElementById('f-fp1').value = today();
+  document.getElementById('pago2-row').style.display = 'grid';
+  document.getElementById('form-title').textContent = 'Nuevo cliente';
+  document.getElementById('btn-guardar').innerHTML = '<i class="ti ti-device-floppy"></i>Guardar cliente';
+  updateEstructura();
+}
+
+function editarCliente() {
+  const id = document.getElementById('btn-editar').getAttribute('data-id');
+  const c = DB.find(x => String(x.id) === String(id)); if (!c) return;
+  editingId = id;
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-nuevo').classList.add('active');
+  document.getElementById('form-title').textContent = 'Editar cliente';
+  document.getElementById('btn-guardar').innerHTML = '<i class="ti ti-device-floppy"></i>Guardar cambios';
+  document.getElementById('f-nombre').value = c.nombre;
+  document.getElementById('f-contacto').value = c.contacto || '';
+  document.getElementById('f-pais').value = c.pais || '';
+  document.getElementById('f-estado').value = c.estado;
+  document.getElementById('f-servicio').value = c.servicio;
+  document.getElementById('f-plan').value = c.plan;
+  document.getElementById('f-modalidad').value = c.modalidad;
+  document.getElementById('f-monto').value = c.monto;
+  document.getElementById('f-moneda').value = c.moneda;
+  document.getElementById('f-inicio').value = c.inicio;
+  document.getElementById('f-fp1').value = c.fp1 || '';
+  document.getElementById('f-mp1').value = c.mp1 || '';
+  document.getElementById('f-fp2').value = c.fp2 || '';
+  document.getElementById('f-mp2').value = c.mp2 || 0;
+  document.getElementById('f-notas').value = c.notas || '';
+  toggleModalidad();
+}
+
+async function renovarCliente() {
+  const id = document.getElementById('btn-renovar').getAttribute('data-id');
   const c = DB.find(x => String(x.id) === String(id)); if (!c) return;
   const last = (c.ciclos || [])[c.ciclos.length - 1];
   if (!last) { alert('No hay ciclos previos'); return; }
