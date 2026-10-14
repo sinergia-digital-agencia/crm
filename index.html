@@ -1890,6 +1890,73 @@ async function confirmarRenovacion() {
 
 // ── DOCUMENTOS ────────────────────────────────────────────────────────────────
 // ── FORMULARIO NUEVO/EDITAR ───────────────────────────────────────────────────
+async function guardarCliente() {
+  const nombre = document.getElementById('f-nombre').value.trim();
+  if (!nombre) { alert('El nombre es obligatorio'); return; }
+  const monto = parseFloat(document.getElementById('f-monto').value) || 0;
+  const modalidad = document.getElementById('f-modalidad').value;
+  const inicio = document.getElementById('f-inicio').value || today();
+  const fp1 = document.getElementById('f-fp1').value || inicio;
+  const mp1 = parseFloat(document.getElementById('f-mp1').value) || monto;
+  const fp2 = document.getElementById('f-fp2').value || '';
+  const mp2 = parseFloat(document.getElementById('f-mp2').value) || 0;
+
+  let fin = '';
+  if (modalidad === '3meses') { const d = parseDate(inicio); d.setMonth(d.getMonth()+3); d.setDate(d.getDate()-1); fin = d.toISOString().split('T')[0]; }
+  else { const d = parseDate(inicio); d.setMonth(d.getMonth()+1); d.setDate(d.getDate()-1); fin = d.toISOString().split('T')[0]; }
+
+  const data = {
+    nombre, contacto: document.getElementById('f-contacto').value,
+    pais: document.getElementById('f-pais').value,
+    estado: document.getElementById('f-estado').value,
+    servicio: document.getElementById('f-servicio').value,
+    plan: document.getElementById('f-plan').value,
+    modalidad, monto, moneda: document.getElementById('f-moneda').value,
+    inicio, fp1, mp1, fp2, mp2,
+    notas: document.getElementById('f-notas').value
+  };
+
+  document.getElementById('btn-guardar').innerHTML = '<i class="ti ti-loader"></i>Guardando...';
+  setSyncState('syncing');
+
+  if (editingId) {
+    const c = DB.find(x => String(x.id) === String(editingId));
+    if (!c) { alert('Cliente no encontrado'); return; }
+    const ciclosOrig = c.ciclos;
+    const docsOrig = c.docs;
+    Object.assign(c, data);
+    c.ciclos = ciclosOrig;
+    c.docs = docsOrig;
+    data.id = editingId;
+    data.ciclos = ciclosOrig;
+    data.docs = docsOrig;
+    await apiPost('saveCliente', { data });
+    setSyncState('ok');
+    verDetalle(editingId);
+    editingId = null;
+  } else {
+    const p1id = uid();
+    let ciclosPagos = [{ id: p1id, fecha: fp1||today(), concepto: 'Pago 1 — Ciclo 1', monto: mp1, estado: 'Pendiente', comprobante: null, comprobantes: [] }];
+    if (modalidad === '3meses' && fp2) ciclosPagos.push({ id: uid(), fecha: fp2, concepto: 'Pago 2 — Ciclo 1', monto: mp2, estado: 'Pendiente', comprobante: null, comprobantes: [] });
+    data.id = uid();
+    data.ciclos = [{ num: 1, inicio, fin, pagos: ciclosPagos }];
+    data.docs = [];
+    DB.push(data);
+    await apiPost('saveCliente', { data });
+    for (const p of ciclosPagos) {
+      await apiPost('savePago', { data: {
+        id: p.id, clienteId: data.id, ciclo: 1,
+        fecha: p.fecha||today(), concepto: p.concepto,
+        monto: p.monto, estado: p.estado,
+        comprobanteNombre: '', comprobanteLink: '', comprobanteNotas: ''
+      }});
+    }
+    setSyncState('ok');
+    goTo('clientes', document.querySelector('[onclick*=clientes]'));
+    editingId = null;
+  }
+}
+
 function cancelForm() { editingId ? verDetalle(editingId) : goTo('clientes', document.querySelector('[onclick*=clientes]')); }
 
 async function eliminarCliente() {
